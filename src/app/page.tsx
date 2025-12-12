@@ -1,65 +1,86 @@
+// src/app/(marketing)/page.tsx
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Search } from "lucide-react";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
+    <>
+      {/* Navbar */}
+      <nav className="fixed top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center space-x-8">
+              <Image
+                src="/imfo_bookings-logo.png"
+                alt="Imfo Bookings"
+                width={140}
+                height={40}
+                className="h-9"
+              />
+              <div className="hidden md:flex items-center space-x-6 text-sm">
+                <button className="hover:text-purple-600">Explore</button>
+                <button className="hover:text-purple-600">Get Inspired</button>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm">
+                Log in
+              </Button>
+              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+                Join Imfo Bookings
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero + Search */}
+      <section className="relative min-h-screen flex items-center justify-center text-white">
         <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
+          src="/hero.png"
+          alt="Wedding rings"
+          fill
+          className="object-cover"
           priority
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+        <div className="absolute inset-0 bg-black/50" /> {/* overlay */}
+        <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
+          <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
+            Every story deserves the
+            <br />
+            right <span className="text-purple-400">lens.</span>
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-lg md:text-xl mb-10 text-gray-200">
+            Discover photographers who capture your love, laughter and life’s
+            biggest moments.
+            <br />
+            Your story. Captured forever.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+
+          {/* Search Bar */}
+          <div className="flex flex-col sm:flex-row max-w-2xl mx-auto gap-3">
+            <Input
+              type="text"
+              placeholder="What are you looking for?"
+              className="h-12 bg-white/95 text-gray-900 placeholder-gray-500 rounded-full px-6"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <Input
+              type="text"
+              placeholder="Shoots"
+              className="h-12 bg-white/95 text-gray-900 placeholder-gray-500 rounded-full px-6"
+            />
+            <Button
+              size="lg"
+              className="h-12 bg-purple-600 hover:bg-purple-700 rounded-full px-8"
+            >
+              <Search className="h-5 w-5 mr-2" />
+              Search
+            </Button>
+          </div>
         </div>
-      </main>
-    </div>
+      </section>
+    </>
   );
 }
