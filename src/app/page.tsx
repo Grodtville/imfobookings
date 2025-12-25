@@ -5,23 +5,51 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Star } from "lucide-react";
+import { Search, Star, CheckCircle, Calendar, MapPin } from "lucide-react";
 import PackageCard from "@/components/PackageCard";
 import { photographers } from "@/lib/data";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  // DialogTrigger if using trigger button
+} from "@/components/ui/dialog";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 // Rich mock data (photographers + packages
+
+// Local Package type used by this page
+type Package = {
+  id: string;
+  photographer: string;
+  title: string;
+  price: number;
+  rating: number;
+  reviews?: number;
+  description?: string;
+  features: string[];
+  eventsCompleted?: number;
+  location?: string;
+};
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
 
+  const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+
   const filteredPackages = photographers.flatMap((p) =>
-    p.packages.map((pkg) => ({
-      id: p.id,
+    p.packages.map((pkg, j) => ({
+      id: `${p.id}-${j}`,
       photographer: p.name,
       title: pkg.title,
       price: pkg.price,
       rating: p.rating,
       reviews: p.reviews,
+      description: pkg.description,
+      features: pkg.description.split(",").map((s) => s.trim()),
+      eventsCompleted: p.reviews ?? 0,
+      location: p.location,
       category: pkg.title.includes("Wedding") ? "White Wedding" : "Other",
     }))
   );
@@ -54,15 +82,13 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative min-h-screen flex items-center justify-center text-white">
+      <section className="relative min-h-screen flex items-center justify-center text-white overflow-hidden">
         <Image
           src="/hero.png"
           alt="Wedding rings"
           fill
           className="object-cover"
           priority
-          placeholder="blur"
-          blurDataURL="/hero.png"
         />
         <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
@@ -103,11 +129,97 @@ export default function HomePage() {
             Trending Packages
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredPackages.map((pkg) => (
-              <PackageCard key={`${pkg.id}-${pkg.title}`} pkg={pkg} />
+            {filteredPackages.map((pkg, i) => (
+              <PackageCard
+                key={`${pkg.id}-${i}`}
+                pkg={pkg}
+                onOpenModal={setSelectedPackage}
+              />
             ))}
           </div>
         </div>
+        <Dialog
+          open={!!selectedPackage}
+          onOpenChange={() => setSelectedPackage(null)}
+        >
+          <DialogContent className="max-w-4xl p-0 overflow-hidden">
+            {selectedPackage && (
+              <>
+                <DialogHeader className="p-6 pb-0">
+                  <DialogTitle className="text-2xl font-bold">
+                    {selectedPackage.title}
+                  </DialogTitle>
+                  <button className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100">
+                    ×
+                  </button>
+                </DialogHeader>
+                <div className="grid md:grid-cols-2">
+                  <div className="relative h-96 md:h-full">
+                    <Image
+                      src="/package-detail.png"
+                      alt={selectedPackage.title}
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <div className="mb-6">
+                      <p className="text-3xl font-bold text-purple-600">
+                        GH₵ {selectedPackage.price.toLocaleString()}
+                      </p>
+                    </div>
+                    <ul className="space-y-3 mb-6">
+                      {selectedPackage.features.map((feature, i) => (
+                        <li key={i} className="flex items-center gap-3">
+                          <CheckCircle className="h-5 w-5 text-purple-600" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="border-t pt-6">
+                      <Link
+                        href={`/profiles/${selectedPackage.id}`}
+                        onClick={() => setSelectedPackage(null)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-12 w-12">
+                            <AvatarImage src="/avatar-anatar.png" />
+                            <AvatarFallback>AJ</AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-semibold">
+                              {selectedPackage.photographer}
+                            </p>
+                            <div className="flex items-center gap-4 text-sm text-gray-600">
+                              <span className="flex items-center gap-1">
+                                <Star className="h-4 w-4 fill-yellow-400" />{" "}
+                                {selectedPackage.rating} (30)
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />{" "}
+                                {selectedPackage.eventsCompleted} events
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <MapPin className="h-4 w-4" />{" "}
+                                {selectedPackage.location}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    </div>
+                    <div className="mt-6">
+                      <h4 className="font-semibold mb-2">About this package</h4>
+                      <p className="text-gray-700">
+                        {selectedPackage.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </section>
 
       {/* Portfolio Shots */}
@@ -120,14 +232,13 @@ export default function HomePage() {
             {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
               <div
                 key={num}
-                className="aspect-square rounded-xl overflow-hidden shadow-md"
+                className="relative aspect-square rounded-xl overflow-hidden shadow-md"
               >
                 <Image
                   src={`/portfolio-${num}.png`}
                   alt="Portfolio"
                   fill
                   className="object-cover"
-                  // placeholder="blur"
                 />
               </div>
             ))}
