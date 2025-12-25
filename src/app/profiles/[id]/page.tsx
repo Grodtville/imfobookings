@@ -1,14 +1,40 @@
+"use client";
+
 import Image from "next/image";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Star, MapPin } from "lucide-react";
 import { photographers } from "@/lib/data";
 
-export default function ProfilePage({ params }: { params: { id: string } }) {
-  const photographer = photographers.find((p) => p.id === params.id);
+export default function ProfilePage() {
+  // read id from the current route params (works for client navigation)
+  const params = useParams() as { id?: string } | null;
+  const idParam = params?.id ?? "";
+
+  // some links may include a composite id (e.g. "1-0"); normalize by taking the leading segment
+  const lookupId = idParam.includes("-") ? idParam.split("-")[0] : idParam;
+  const photographer = photographers.find(
+    (p) => p.id === idParam || p.id === lookupId
+  );
 
   if (!photographer) {
     return (
-      <div className="pt-20 text-center text-3xl">Photographer not found</div>
+      <div className="pt-20 text-center">
+        <div className="text-3xl mb-4">Photographer not found</div>
+        <div className="text-sm text-gray-500">
+          Tried id: <strong>{idParam || "(none)"}</strong>
+          {lookupId && lookupId !== idParam && (
+            <span>
+              {" "}
+              (lookup: <strong>{lookupId}</strong>)
+            </span>
+          )}
+        </div>
+        <div className="mt-4 text-sm text-gray-600">
+          Available photographer ids:{" "}
+          {photographers.map((p) => p.id).join(", ")}
+        </div>
+      </div>
     );
   }
 
@@ -21,7 +47,6 @@ export default function ProfilePage({ params }: { params: { id: string } }) {
           fill
           className="object-cover"
           priority
-          placeholder="blur"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
         <div className="absolute bottom-8 left-8 text-white">
