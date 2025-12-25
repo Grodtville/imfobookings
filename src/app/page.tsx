@@ -1,10 +1,31 @@
-// src/app/(marketing)/page.tsx
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
+import PackageCard from "@/components/PackageCard";
+import { photographers } from "@/lib/data";
+
+// Rich mock data (photographers + packages
 
 export default function HomePage() {
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredPackages = photographers.flatMap((p) =>
+    p.packages.map((pkg) => ({
+      id: p.id,
+      photographer: p.name,
+      title: pkg.title,
+      price: pkg.price,
+      rating: p.rating,
+      reviews: p.reviews,
+      category: pkg.title.includes("Wedding") ? "White Wedding" : "Other",
+    }))
+  );
+
   return (
     <>
       {/* Navbar */}
@@ -12,13 +33,9 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-8">
-              <Image
-                src="/imfo_bookings-logo.png"
-                alt="Imfo Bookings"
-                width={140}
-                height={40}
-                className="h-9"
-              />
+              <div className="text-2xl font-bold text-purple-600">
+                Imfo Bookings
+              </div>
               <div className="hidden md:flex items-center space-x-6 text-sm">
                 <button className="hover:text-purple-600">Explore</button>
                 <button className="hover:text-purple-600">Get Inspired</button>
@@ -36,7 +53,7 @@ export default function HomePage() {
         </div>
       </nav>
 
-      {/* Hero + Search */}
+      {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center text-white">
         <Image
           src="/hero.png"
@@ -44,8 +61,10 @@ export default function HomePage() {
           fill
           className="object-cover"
           priority
+          placeholder="blur"
+          blurDataURL="/hero.png"
         />
-        <div className="absolute inset-0 bg-black/50" /> {/* overlay */}
+        <div className="absolute inset-0 bg-black/50" />
         <div className="relative z-10 text-center px-4 max-w-5xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">
             Every story deserves the
@@ -58,18 +77,13 @@ export default function HomePage() {
             <br />
             Your story. Captured forever.
           </p>
-
-          {/* Search Bar */}
           <div className="flex flex-col sm:flex-row max-w-2xl mx-auto gap-3">
             <Input
               type="text"
               placeholder="What are you looking for?"
-              className="h-12 bg-white/95 text-gray-900 placeholder-gray-500 rounded-full px-6"
-            />
-            <Input
-              type="text"
-              placeholder="Shoots"
-              className="h-12 bg-white/95 text-gray-900 placeholder-gray-500 rounded-full px-6"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="h-12 bg-white/95 text-gray-900 rounded-full px-6"
             />
             <Button
               size="lg"
@@ -82,42 +96,15 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Trending Packages Section */}
+      {/* Trending Packages */}
       <section className="py-16 px-4 bg-gray-50">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">
             Trending Packages
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition"
-              >
-                <div className="relative h-48">
-                  <Image
-                    src="/package.png"
-                    alt="Wedding package"
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute top-3 left-3 bg-white/90 px-3 py-1 rounded-full text-sm font-medium">
-                    White Wedding
-                  </div>
-                </div>
-                <div className="p-5">
-                  <h3 className="font-semibold text-lg">The Bronze Wedding</h3>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-2xl font-bold text-purple-600">
-                      GH₵ 5,000
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <span className="text-yellow-500">★</span>
-                      <span className="text-sm">5.0 (2)</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            {filteredPackages.map((pkg) => (
+              <PackageCard key={`${pkg.id}-${pkg.title}`} pkg={pkg} />
             ))}
           </div>
         </div>
@@ -125,36 +112,30 @@ export default function HomePage() {
 
       {/* Portfolio Shots */}
       <section className="py-16 px-4 bg-white">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto">
           <h2 className="text-3xl font-bold text-gray-900 mb-8">
             Portfolio Shots
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {[...Array(15)].map((_, i) => (
+            {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
               <div
-                key={i}
-                className="aspect-square rounded-xl overflow-hidden shadow-md hover:shadow-lg transition"
+                key={num}
+                className="aspect-square rounded-xl overflow-hidden shadow-md"
               >
                 <Image
-                  src="/portfolio.png"
+                  src={`/portfolio-${num}.png`}
                   alt="Portfolio"
                   fill
-                  className="object-cover rounded-xl"
+                  className="object-cover"
+                  // placeholder="blur"
                 />
               </div>
             ))}
           </div>
-          <div className="text-center mt-10">
-            <Button
-              variant="outline"
-              className="border-purple-600 text-purple-600 hover:bg-purple-50"
-            >
-              Log in or Sign up to load more
-            </Button>
-          </div>
         </div>
       </section>
 
+      {/* Footer – purple */}
       {/* Purple Footer */}
       <footer className="bg-purple-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
