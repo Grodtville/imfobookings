@@ -8,6 +8,7 @@ import Navbar from "@/components/Navbar";
 import { Star, MapPin } from "lucide-react";
 import { photographers } from "@/lib/data";
 import ImageLightbox from "@/components/ImageLightbox";
+import Footer from "@/components/Footer";
 
 export default function ProfilePage() {
   // read id from the current route params (works for client navigation)
@@ -143,6 +144,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </>
   );
 }

@@ -14,11 +14,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Mail, Phone, ArrowLeft } from "lucide-react";
+import { X, Mail, ArrowLeft } from "lucide-react";
 
 type Step =
   | "welcome"
-  | "method"
+  | "login"
+  | "signup"
   | "otp"
   | "password"
   | "role"
@@ -34,6 +35,7 @@ export default function AuthModal({
 }) {
   const [step, setStep] = useState<Step>("welcome");
   const [emailOrPhone, setEmailOrPhone] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<"photographer" | "hirer" | null>(null);
   const router = useRouter();
   const { signIn } = useAuth();
@@ -52,7 +54,7 @@ export default function AuthModal({
   // use context signIn if available; fallback to localStorage write
   const signInDemoUser = () => {
     const demoUser = {
-      id: "me",
+      id: `local:${emailOrPhone || "me"}`,
       name: emailOrPhone || "Imfo User",
       avatar: "/avatar-anatar.png",
     };
@@ -65,6 +67,29 @@ export default function AuthModal({
         /* ignore */
       }
     }
+  };
+
+  const signInWithProvider = (provider: "google" | "email") => {
+    const demoUser = {
+      id: `${provider}:${emailOrPhone || "user"}`,
+      name:
+        provider === "google"
+          ? emailOrPhone || "Google User"
+          : emailOrPhone || "Imfo User",
+      avatar:
+        provider === "google" ? "/avatar-google.png" : "/avatar-anatar.png",
+    };
+    try {
+      signIn(demoUser);
+    } catch (e) {
+      try {
+        localStorage.setItem("imfo_user", JSON.stringify(demoUser));
+      } catch (err) {
+        /* ignore */
+      }
+    }
+    handleClose();
+    router.push("/");
   };
 
   return (
@@ -82,28 +107,32 @@ export default function AuthModal({
           {step === "welcome" && (
             <>
               <DialogTitle className="text-2xl font-bold mb-4">
-                Want to join Imfo Bookings?
+                Welcome
               </DialogTitle>
-              <p className="text-gray-600 mb-8">
-                Sign in or create an account to book our photographers, or join
-                us as a photographer.
+              <p className="text-gray-600 mb-6">
+                Sign in to your account or join Imfo Bookings to get started.
               </p>
-              <Input
-                type="email"
-                placeholder="Email address or phone number"
-                value={emailOrPhone}
-                onChange={(e) => setEmailOrPhone(e.target.value)}
-                className="mb-4"
-              />
-              <Button
-                className="w-full bg-purple-600 hover:bg-purple-700 mb-4"
-                onClick={() => setStep("method")}
-              >
-                Verify
-              </Button>
+              <div className="w-full grid grid-cols-2 gap-3 mb-4">
+                <Button
+                  className="w-full bg-white border border-gray-200 text-gray-900"
+                  onClick={() => setStep("login")}
+                >
+                  Log in
+                </Button>
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => setStep("signup")}
+                >
+                  Join Imfo Bookings
+                </Button>
+              </div>
               <div className="my-4 text-sm text-gray-500">or</div>
-              <Button variant="outline" className="w-full mb-4">
-                <Mail className="mr-2 h-4 w-4" /> Sign up with Google
+              <Button
+                variant="outline"
+                className="w-full mb-4"
+                onClick={() => signInWithProvider("google")}
+              >
+                <Mail className="mr-2 h-4 w-4" /> Continue with Google
               </Button>
               <p className="text-xs text-gray-500 mt-6">
                 By signing up you accept our{" "}
@@ -118,7 +147,37 @@ export default function AuthModal({
               </p>
             </>
           )}
-          {step === "method" && (
+          {step === "signup" && (
+            <>
+              <button
+                onClick={() => setStep("welcome")}
+                className="self-start mb-4"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <DialogTitle className="text-2xl font-bold mb-4">
+                Sign up
+              </DialogTitle>
+              <Label className="self-start">Email</Label>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={emailOrPhone}
+                onChange={(e) => setEmailOrPhone(e.target.value)}
+                className="mb-4"
+              />
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={() => {
+                  // simple auth simulation
+                  setStep("otp");
+                }}
+              >
+                Log in
+              </Button>
+            </>
+          )}
+          {step === "otp" && (
             <>
               <button
                 onClick={() => setStep("welcome")}
@@ -130,7 +189,7 @@ export default function AuthModal({
                 You're almost there!
               </DialogTitle>
               <p className="text-gray-600 mb-6">
-                Please enter the OTP to sign up.
+                Please enter the OTP sent to your email.
               </p>
               <Input
                 placeholder="······"
@@ -144,16 +203,58 @@ export default function AuthModal({
               </p>
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => setStep("password")}
+                onClick={() => {
+                  // pretend OTP is valid, sign in and go to role
+                  signInDemoUser();
+                  setStep("role");
+                }}
               >
-                Sign up
+                Verify
+              </Button>
+            </>
+          )}
+          {step === "login" && (
+            <>
+              <button
+                onClick={() => setStep("welcome")}
+                className="self-start mb-4"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </button>
+              <DialogTitle className="text-2xl font-bold mb-4">
+                Log in
+              </DialogTitle>
+              <Label className="self-start">Email</Label>
+              <Input
+                type="email"
+                placeholder="you@example.com"
+                value={emailOrPhone}
+                onChange={(e) => setEmailOrPhone(e.target.value)}
+                className="mb-4"
+              />
+              <Label className="self-start">Password</Label>
+              <Input
+                type="password"
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mb-6"
+              />
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={() => {
+                  // simple auth simulation
+                  signInWithProvider("email");
+                }}
+              >
+                Log in
               </Button>
             </>
           )}
           {step === "password" && (
             <>
               <button
-                onClick={() => setStep("method")}
+                onClick={() => setStep("welcome")}
                 className="self-start mb-4"
               >
                 <ArrowLeft className="h-5 w-5" />

@@ -9,6 +9,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
+import Footer from "@/components/Footer";
 
 const trendingPackages = [
   {
@@ -304,9 +305,7 @@ export default function SearchClient() {
         </section>
       )}
 
-      <footer className="bg-purple-900 text-white py-12">
-        {/* Footer placeholder */}
-      </footer>
+      <Footer />
     </>
   );
 }

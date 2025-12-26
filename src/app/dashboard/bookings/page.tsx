@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MessageCircle, Flag, XCircle } from "lucide-react";
+import Footer from "@/components/Footer";
 
 // Mock data — replace with FastAPI fetch later
 const currentBookings = [
@@ -126,34 +127,38 @@ const BookingCard = ({ booking }: { booking: (typeof currentBookings)[0] }) => (
 
 export default function MyBookingsPage() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header - reuse from dashboard or create simple */}
-      <header className="bg-white border-b px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-4xl font-bold">My Bookings</h1>
+    <>
+      <div className="min-h-screen bg-gray-50">
+        {/* Header - reuse from dashboard or create simple */}
+        <header className="bg-white border-b px-6 py-4">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <h1 className="text-4xl font-bold">My Bookings</h1>
+          </div>
+        </header>
+
+        <div className="max-w-6xl mx-auto p-8">
+          <Tabs defaultValue="current" className="mb-8">
+            <TabsList>
+              <TabsTrigger value="current">Currently Booked (3)</TabsTrigger>
+              <TabsTrigger value="history">Booking History (35)</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="current">
+              {currentBookings.map((booking) => (
+                <BookingCard key={booking.id} booking={booking} />
+              ))}
+            </TabsContent>
+
+            <TabsContent value="history">
+              <p className="text-center text-gray-500 py-12">
+                History coming soon...
+              </p>
+            </TabsContent>
+          </Tabs>
         </div>
-      </header>
-
-      <div className="max-w-6xl mx-auto p-8">
-        <Tabs defaultValue="current" className="mb-8">
-          <TabsList>
-            <TabsTrigger value="current">Currently Booked (3)</TabsTrigger>
-            <TabsTrigger value="history">Booking History (35)</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="current">
-            {currentBookings.map((booking) => (
-              <BookingCard key={booking.id} booking={booking} />
-            ))}
-          </TabsContent>
-
-          <TabsContent value="history">
-            <p className="text-center text-gray-500 py-12">
-              History coming soon...
-            </p>
-          </TabsContent>
-        </Tabs>
       </div>
-    </div>
+
+      <Footer />
+    </>
   );
 }
