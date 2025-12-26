@@ -2,9 +2,12 @@
 
 import Image from "next/image";
 import { useParams } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import Navbar from "@/components/Navbar";
 import { Star, MapPin } from "lucide-react";
 import { photographers } from "@/lib/data";
+import ImageLightbox from "@/components/ImageLightbox";
 
 export default function ProfilePage() {
   // read id from the current route params (works for client navigation)
@@ -16,6 +19,8 @@ export default function ProfilePage() {
   const photographer = photographers.find(
     (p) => p.id === idParam || p.id === lookupId
   );
+
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   if (!photographer) {
     return (
@@ -40,6 +45,7 @@ export default function ProfilePage() {
 
   return (
     <>
+      <Navbar />
       <section className="relative h-96 md:h-screen">
         <Image
           src={photographer.coverImage}
@@ -85,7 +91,13 @@ export default function ProfilePage() {
             {photographer.gallery.map((img, i) => (
               <div
                 key={i}
-                className="aspect-square rounded-xl overflow-hidden shadow-lg relative"
+                className="aspect-square rounded-xl overflow-hidden shadow-lg relative cursor-pointer"
+                onClick={() => setLightboxSrc(img)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setLightboxSrc(img);
+                }}
               >
                 <Image src={img} alt="Gallery" fill className="object-cover" />
               </div>
@@ -93,6 +105,14 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      <ImageLightbox
+        open={!!lightboxSrc}
+        onOpenChange={(open) => {
+          if (!open) setLightboxSrc(null);
+        }}
+        imageSrc={lightboxSrc || ""}
+      />
 
       <section className="py-16 px-4 bg-gray-50">
         <div className="max-w-4xl mx-auto">

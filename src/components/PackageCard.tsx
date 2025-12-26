@@ -33,6 +33,14 @@ type PackageCardProps = {
 };
 
 export default function PackageCard({ pkg, onOpenModal }: PackageCardProps) {
+  const photographerName = pkg.photographer ?? "";
+  const photographerInitials = photographerName
+    ? photographerName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+    : "";
   return (
     <div
       className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition cursor-pointer"
@@ -63,14 +71,9 @@ export default function PackageCard({ pkg, onOpenModal }: PackageCardProps) {
               <AvatarImage
                 src={pkg.photographerAvatar || "/avatar-placeholder.png"}
               />
-              <AvatarFallback>
-                {pkg.photographer
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </AvatarFallback>
+              <AvatarFallback>{photographerInitials}</AvatarFallback>
             </Avatar>
-            <span className="font-medium">{pkg.photographer}</span>
+            <span className="font-medium">{photographerName || "Unknown"}</span>
           </Link>
         </div>
         <div className="flex items-center justify-between">

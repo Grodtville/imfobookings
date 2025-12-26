@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Star, CheckCircle, Calendar, MapPin } from "lucide-react";
 import PackageCard from "@/components/PackageCard";
+import Navbar from "@/components/Navbar";
 import { photographers } from "@/lib/data";
 import {
   Dialog,
@@ -16,6 +18,7 @@ import {
   // DialogTrigger if using trigger button
 } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import ImageLightbox from "@/components/ImageLightbox";
 
 // Rich mock data (photographers + packages
 
@@ -37,8 +40,11 @@ type Package = {
 
 export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const router = useRouter();
 
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
+
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   const filteredPackages = photographers.flatMap((p) =>
     p.packages.map((pkg, j) => ({
@@ -60,30 +66,7 @@ export default function HomePage() {
 
   return (
     <>
-      {/* Navbar */}
-      <nav className="fixed top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-8">
-              <div className="text-2xl font-bold text-purple-600">
-                Imfo Bookings
-              </div>
-              <div className="hidden md:flex items-center space-x-6 text-sm">
-                <button className="hover:text-purple-600">Explore</button>
-                <button className="hover:text-purple-600">Get Inspired</button>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm">
-                Log in
-              </Button>
-              <Button className="bg-purple-600 hover:bg-purple-700 text-white">
-                Join Imfo Bookings
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero */}
       <section className="relative min-h-screen flex items-center justify-center text-white overflow-hidden">
@@ -113,11 +96,19 @@ export default function HomePage() {
               placeholder="What are you looking for?"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  router.push(`/search?q=${encodeURIComponent(searchTerm)}`);
+                }
+              }}
               className="h-12 bg-white/95 text-gray-900 rounded-full px-6"
             />
             <Button
               size="lg"
               className="h-12 bg-purple-600 hover:bg-purple-700 rounded-full px-8"
+              onClick={() =>
+                router.push(`/search?q=${encodeURIComponent(searchTerm)}`)
+              }
             >
               <Search className="h-5 w-5 mr-2" />
               Search
@@ -270,7 +261,14 @@ export default function HomePage() {
             {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
               <div
                 key={num}
-                className="relative aspect-square rounded-xl overflow-hidden shadow-md"
+                className="relative aspect-square rounded-xl overflow-hidden shadow-md cursor-pointer"
+                onClick={() => setLightboxSrc(`/portfolio-${num}.png`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ")
+                    setLightboxSrc(`/portfolio-${num}.png`);
+                }}
               >
                 <Image
                   src={`/portfolio-${num}.png`}
@@ -283,6 +281,14 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <ImageLightbox
+        open={!!lightboxSrc}
+        onOpenChange={(open) => {
+          if (!open) setLightboxSrc(null);
+        }}
+        imageSrc={lightboxSrc || ""}
+      />
 
       {/* Footer – purple */}
       <footer className="bg-purple-900 text-white py-12">
