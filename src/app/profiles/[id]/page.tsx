@@ -85,7 +85,7 @@ export default function ProfilePage() {
             {photographer.gallery.map((img, i) => (
               <div
                 key={i}
-                className="aspect-square rounded-xl overflow-hidden shadow-lg"
+                className="aspect-square rounded-xl overflow-hidden shadow-lg relative"
               >
                 <Image src={img} alt="Gallery" fill className="object-cover" />
               </div>
