@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "../context/AuthContext";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +16,14 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Mail, Phone, ArrowLeft } from "lucide-react";
 
-type Step = "welcome" | "method" | "otp" | "password" | "role" | "complete";
+type Step =
+  | "welcome"
+  | "method"
+  | "otp"
+  | "password"
+  | "role"
+  | "hirerChoice"
+  | "complete";
 
 export default function AuthModal({
   open,
@@ -26,6 +35,8 @@ export default function AuthModal({
   const [step, setStep] = useState<Step>("welcome");
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [role, setRole] = useState<"photographer" | "hirer" | null>(null);
+  const router = useRouter();
+  const { signIn } = useAuth();
 
   const reset = () => {
     setStep("welcome");
@@ -36,6 +47,24 @@ export default function AuthModal({
   const handleClose = () => {
     reset();
     onOpenChange(false);
+  };
+
+  // use context signIn if available; fallback to localStorage write
+  const signInDemoUser = () => {
+    const demoUser = {
+      id: "me",
+      name: emailOrPhone || "Imfo User",
+      avatar: "/avatar-anatar.png",
+    };
+    try {
+      signIn(demoUser);
+    } catch (e) {
+      try {
+        localStorage.setItem("imfo_user", JSON.stringify(demoUser));
+      } catch (err) {
+        /* ignore */
+      }
+    }
   };
 
   return (
@@ -179,7 +208,15 @@ export default function AuthModal({
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
                 disabled={!role}
-                onClick={() => setStep("complete")}
+                onClick={() => {
+                  // persist demo user as logged in
+                  signInDemoUser();
+                  if (role === "hirer") {
+                    setStep("hirerChoice");
+                  } else {
+                    setStep("complete");
+                  }
+                }}
               >
                 Agree and continue
               </Button>
@@ -203,6 +240,38 @@ export default function AuthModal({
               <Button className="w-full bg-purple-600 hover:bg-purple-700 py-6 text-lg">
                 Start Setup
               </Button>
+            </>
+          )}
+          {step === "hirerChoice" && (
+            <>
+              <DialogTitle className="text-2xl font-bold mb-4">
+                How would you like to proceed?
+              </DialogTitle>
+              <p className="text-gray-600 mb-6">
+                Set up your profile now for faster bookings, or browse available
+                packages.
+              </p>
+              <div className="grid gap-3">
+                <Button
+                  className="w-full bg-white border border-gray-200 text-gray-900"
+                  onClick={() => {
+                    handleClose();
+                    router.push("/dashboard/edit-profile");
+                  }}
+                >
+                  Set up profile
+                </Button>
+
+                <Button
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                  onClick={() => {
+                    handleClose();
+                    router.push("/search");
+                  }}
+                >
+                  Browse packages
+                </Button>
+              </div>
             </>
           )}
         </div>
