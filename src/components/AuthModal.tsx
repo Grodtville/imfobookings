@@ -59,18 +59,22 @@ export default function AuthModal({
                 Sign in or create an account to book our photographers, or join
                 us as a photographer.
               </p>
+              <Input
+                type="email"
+                placeholder="Email address or phone number"
+                value={emailOrPhone}
+                onChange={(e) => setEmailOrPhone(e.target.value)}
+                className="mb-4"
+              />
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700 mb-4"
                 onClick={() => setStep("method")}
               >
-                Enter email
+                Verify
               </Button>
               <div className="my-4 text-sm text-gray-500">or</div>
               <Button variant="outline" className="w-full mb-4">
-                <Mail className="mr-2 h-4 w-4" /> Continue with email
-              </Button>
-              <Button variant="outline" className="w-full">
-                <Phone className="mr-2 h-4 w-4" /> Continue with phone number
+                <Mail className="mr-2 h-4 w-4" /> Sign up with Google
               </Button>
               <p className="text-xs text-gray-500 mt-6">
                 By signing up you accept our{" "}
@@ -109,7 +113,10 @@ export default function AuthModal({
                   Resend OTP
                 </a>
               </p>
-              <Button className="w-full bg-purple-600 hover:bg-purple-700">
+              <Button
+                className="w-full bg-purple-600 hover:bg-purple-700"
+                onClick={() => setStep("password")}
+              >
                 Sign up
               </Button>
             </>

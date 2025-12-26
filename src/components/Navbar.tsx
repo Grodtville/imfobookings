@@ -2,8 +2,11 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import AuthModal from "@/components/AuthModal";
+import { useState } from "react";
 
 export default function Navbar() {
+  const [authOpen, setAuthOpen] = useState(false);
   return (
     <nav className="fixed top-0 z-50 w-full bg-white/90 backdrop-blur-md border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -25,9 +28,14 @@ export default function Navbar() {
             <Button variant="ghost" size="sm">
               Log in
             </Button>
-            <Button className="bg-purple-600 hover:bg-purple-700 text-white">
+            <Button
+              className="bg-purple-600 hover:bg-purple-700 text-white"
+              onClick={() => setAuthOpen(true)}
+            >
               Join Imfo Bookings
             </Button>
+
+            <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
           </div>
         </div>
       </div>
