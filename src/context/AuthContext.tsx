@@ -1,28 +1,107 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { useSession, signOut as nextAuthSignOut } from "next-auth/react";
+import { me as apiMe, logout as apiLogout } from "@/lib/auth";
+import API from "@/lib/api";
 
 type User = { id: string; name: string; avatar?: string } | null;
 
 type AuthContextValue = {
   user: User;
-  signIn: (user: { id: string; name: string; avatar?: string }) => void;
+  signIn: (
+    user: { id: string; name: string; avatar?: string },
+    token?: string
+  ) => void;
   signOut: () => void;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+// Helper to fetch profile photo
+async function fetchUserProfile(userId: string): Promise<string | undefined> {
+  try {
+    const res = await API.get(`/v1/profile/id/${userId}`);
+    return res.data?.photo_url || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const { data: session, status } = useSession();
   const [user, setUser] = useState<User>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Function to refresh user profile (including avatar)
+  const refreshProfile = async () => {
+    if (!user?.id) return;
+    const photoUrl = await fetchUserProfile(user.id);
+    if (photoUrl) {
+      setUser((prev) => (prev ? { ...prev, avatar: photoUrl } : prev));
+    }
+  };
 
   useEffect(() => {
+    // Sync with NextAuth session
+    if (status === "loading") {
+      setLoading(true);
+      return;
+    }
+
+    if (status === "authenticated" && session) {
+      // User is authenticated via NextAuth
+      const sessionUser = (session as any).user;
+      if (sessionUser) {
+        const baseUser = sessionUser as User;
+        setUser(baseUser);
+        // Fetch profile photo
+        if (baseUser?.id) {
+          fetchUserProfile(baseUser.id).then((photoUrl) => {
+            if (photoUrl) {
+              setUser((prev) => (prev ? { ...prev, avatar: photoUrl } : prev));
+            }
+          });
+        }
+        setLoading(false);
+        return;
+      }
+    }
+
+    // Fallback to localStorage for backwards compatibility
     try {
-      const raw = localStorage.getItem("imfo_user");
-      if (raw) setUser(JSON.parse(raw));
+      const rawUser = localStorage.getItem("imfo_user");
+      const token = localStorage.getItem("imfo_token");
+      if (rawUser) setUser(JSON.parse(rawUser));
+      if (token) {
+        apiMe()
+          .then(async (data) => {
+            // backend may return { user } or direct user
+            const userData = (data && (data.user || data)) as User;
+            if (userData?.id) {
+              const photoUrl = await fetchUserProfile(userData.id);
+              if (photoUrl) {
+                setUser({ ...userData, avatar: photoUrl });
+              } else {
+                setUser(userData);
+              }
+            } else {
+              setUser(userData);
+            }
+          })
+          .catch(() => {
+            setUser(rawUser ? JSON.parse(rawUser || "null") : null);
+          })
+          .finally(() => setLoading(false));
+      } else {
+        setLoading(false);
+      }
     } catch (e) {
       setUser(null);
+      setLoading(false);
     }
-  }, []);
+  }, [session, status]);
 
   useEffect(() => {
     try {
@@ -33,12 +112,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user]);
 
-  const signIn = (u: { id: string; name: string; avatar?: string }) =>
+  const signIn = (
+    u: { id: string; name: string; avatar?: string },
+    token?: string
+  ) => {
     setUser(u);
-  const signOut = () => setUser(null);
+    try {
+      if (token) localStorage.setItem("imfo_token", token);
+    } catch (e) {
+      /* ignore */
+    }
+  };
+
+  const signOut = async () => {
+    try {
+      // Sign out from NextAuth
+      await nextAuthSignOut({ redirect: false });
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      await apiLogout();
+    } catch (e) {
+      /* ignore */
+    }
+    try {
+      localStorage.removeItem("imfo_token");
+      localStorage.removeItem("imfo_user");
+    } catch (e) {
+      /* ignore */
+    }
+    setUser(null);
+    // Navigate to home page
+    window.location.href = "/";
+  };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, signIn, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

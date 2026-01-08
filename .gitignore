@@ -167,3 +167,40 @@ lerna-debug.log*
 .vscode/
 *.swp
 *.swo
+
+# Sensitive/Secret files
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+secrets.yaml
+secrets.yml
+.secrets
+credentials.json
+service-account.json
+firebase-adminsdk*.json
+
+# Database files
+*.sqlite
+*.sqlite3
+*.db
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Editor directories
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

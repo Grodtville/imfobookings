@@ -15,13 +15,18 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Mail, ArrowLeft } from "lucide-react";
+import {
+  tokenLogin as apiTokenLogin,
+  createUser as apiCreateUser,
+  me as apiMe,
+} from "@/lib/auth";
+import { handleAPIError } from "@/lib/auth-utils";
+import { signIn as nextSignIn, getSession } from "next-auth/react";
 
 type Step =
   | "welcome"
   | "login"
   | "signup"
-  | "otp"
-  | "password"
   | "role"
   | "hirerChoice"
   | "complete";
@@ -36,6 +41,9 @@ export default function AuthModal({
   const [step, setStep] = useState<Step>("welcome");
   const [emailOrPhone, setEmailOrPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [role, setRole] = useState<"photographer" | "hirer" | null>(null);
   const router = useRouter();
   const { signIn } = useAuth();
@@ -59,7 +67,7 @@ export default function AuthModal({
       avatar: "/avatar-anatar.png",
     };
     try {
-      signIn(demoUser);
+      signIn(demoUser, "local-token");
     } catch (e) {
       try {
         localStorage.setItem("imfo_user", JSON.stringify(demoUser));
@@ -166,50 +174,75 @@ export default function AuthModal({
                 onChange={(e) => setEmailOrPhone(e.target.value)}
                 className="mb-4"
               />
-              <Button
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => {
-                  // simple auth simulation
-                  setStep("otp");
-                }}
-              >
-                Log in
-              </Button>
-            </>
-          )}
-          {step === "otp" && (
-            <>
-              <button
-                onClick={() => setStep("welcome")}
-                className="self-start mb-4"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <DialogTitle className="text-2xl font-bold mb-4">
-                You're almost there!
-              </DialogTitle>
-              <p className="text-gray-600 mb-6">
-                Please enter the OTP sent to your email.
-              </p>
+              <Label className="self-start">Create password</Label>
               <Input
-                placeholder="······"
-                className="text-center text-2xl tracking-widest mb-4"
+                type="password"
+                placeholder="Choose a password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mb-4"
               />
-              <p className="text-sm text-gray-500 mb-6">
-                OTP not received?{" "}
-                <a href="#" className="text-purple-600">
-                  Resend OTP
-                </a>
-              </p>
+              {error && (
+                <div className="w-full p-3 mb-2 text-sm text-red-600 bg-red-50 rounded border border-red-200">
+                  {error}
+                </div>
+              )}
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => {
-                  // pretend OTP is valid, sign in and go to role
-                  signInDemoUser();
-                  setStep("role");
+                disabled={loading || !emailOrPhone || !password}
+                onClick={async () => {
+                  setError(null);
+                  setLoading(true);
+                  try {
+                    // create user via backend - requires username, email, password
+                    await apiCreateUser({
+                      username: emailOrPhone,
+                      email: emailOrPhone,
+                      password,
+                    });
+                    // sign in via NextAuth credentials provider
+                    const res = await nextSignIn("credentials", {
+                      redirect: false,
+                      username: emailOrPhone,
+                      password,
+                    } as any);
+                    if (res?.ok) {
+                      const session = await getSession();
+                      const access = (session as any)?.accessToken;
+                      const user = (session as any)?.user || null;
+                      if (access) {
+                        try {
+                          localStorage.setItem("imfo_token", access);
+                        } catch (err) {}
+                      }
+                      if (user) {
+                        try {
+                          localStorage.setItem(
+                            "imfo_user",
+                            JSON.stringify(user)
+                          );
+                        } catch (err) {}
+                        try {
+                          signIn(user, access || undefined);
+                        } catch (e) {
+                          /* ignore */
+                        }
+                        handleClose();
+                        router.push("/");
+                        return;
+                      }
+                    }
+                    // fallback demo sign in
+                    signInDemoUser();
+                    setStep("role");
+                  } catch (err: any) {
+                    setError(handleAPIError(err));
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
               >
-                Verify
+                {loading ? "Creating account..." : "Create account"}
               </Button>
             </>
           )}
@@ -238,45 +271,65 @@ export default function AuthModal({
                 placeholder="Your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="mb-6"
+                className="mb-4"
               />
+              {error && (
+                <div className="w-full p-3 mb-2 text-sm text-red-600 bg-red-50 rounded border border-red-200">
+                  {error}
+                </div>
+              )}
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => {
-                  // simple auth simulation
-                  signInWithProvider("email");
+                disabled={loading || !emailOrPhone || !password}
+                onClick={async () => {
+                  setError(null);
+                  setLoading(true);
+                  try {
+                    const res = await nextSignIn("credentials", {
+                      redirect: false,
+                      username: emailOrPhone,
+                      password,
+                    } as any);
+                    if (res?.ok) {
+                      const session = await getSession();
+                      const access = (session as any)?.accessToken;
+                      const user = (session as any)?.user || null;
+                      if (access) {
+                        try {
+                          localStorage.setItem("imfo_token", access);
+                        } catch (err) {}
+                      }
+                      if (user) {
+                        try {
+                          localStorage.setItem(
+                            "imfo_user",
+                            JSON.stringify(user)
+                          );
+                        } catch (err) {}
+                        try {
+                          signIn(user, access || undefined);
+                        } catch (e) {
+                          /* ignore */
+                        }
+                      }
+                      handleClose();
+                      router.push("/");
+                    } else {
+                      setError(
+                        res?.error === "CredentialsSignin"
+                          ? "Invalid email or password"
+                          : res?.error || "Login failed"
+                      );
+                    }
+                  } catch (err: any) {
+                    setError(handleAPIError(err));
+                  } finally {
+                    setLoading(false);
+                  }
                 }}
               >
-                Log in
+                {loading ? "Logging in..." : "Log in"}
               </Button>
-            </>
-          )}
-          {step === "password" && (
-            <>
-              <button
-                onClick={() => setStep("welcome")}
-                className="self-start mb-4"
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </button>
-              <DialogTitle className="text-2xl font-bold mb-4">
-                Finish signing up.
-              </DialogTitle>
-              <Label className="self-start">Create password</Label>
-              <Input type="password" className="mb-4" />
-              <Label className="self-start">Confirm password</Label>
-              <Input type="password" className="mb-6" />
-              <Button
-                className="w-full bg-purple-600 hover:bg-purple-700"
-                onClick={() => setStep("role")}
-              >
-                Agree and continue
-              </Button>
-              <p className="text-xs text-gray-500 mt-4">
-                By selecting Agree and continue, I agree to Imfo Bookings' Terms
-                of Service, Payments Terms of Service, and Nondiscrimination
-                Policy and acknowledge the Privacy Policy.
-              </p>
             </>
           )}
           {step === "role" && (

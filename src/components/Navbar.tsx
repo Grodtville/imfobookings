@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import AuthModal from "@/components/AuthModal";
 import { useEffect, useState, useRef } from "react";
@@ -43,8 +44,15 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center space-x-8">
-            <Link href="/" className="text-2xl font-bold text-purple-600">
-              Imfo Bookings
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/imfo-bookings-logo.png"
+                alt="Imfo Bookings"
+                width={150}
+                height={40}
+                className="h-10 w-auto"
+                priority
+              />
             </Link>
             <div className="hidden md:flex items-center space-x-6 text-sm">
               <Link href="/search" className="hover:text-purple-600">
@@ -88,17 +96,25 @@ export default function Navbar() {
                     className="rounded-full overflow-hidden"
                   >
                     <Avatar className="h-8 w-8">
-                      <AvatarImage
-                        src={user?.avatar || "/avatar-placeholder.png"}
-                      />
-                      <AvatarFallback>
-                        {user?.name
-                          ? user.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                          : "?"}
-                      </AvatarFallback>
+                      {user?.avatar ? (
+                        <img
+                          src={user.avatar}
+                          alt={user?.name || "User"}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <>
+                          <AvatarImage src="/avatar-placeholder.png" />
+                          <AvatarFallback>
+                            {user?.name
+                              ? user.name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                              : "?"}
+                          </AvatarFallback>
+                        </>
+                      )}
                     </Avatar>
                   </button>
 

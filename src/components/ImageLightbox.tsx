@@ -4,9 +4,18 @@ import Image from "next/image";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Star, MapPin, Camera, Bookmark } from "lucide-react";
+import {
+  Star,
+  MapPin,
+  Camera,
+  Bookmark,
+  ChevronLeft,
+  ChevronRight,
+  X,
+} from "lucide-react";
 
-type LightboxProps = {
+// Original single-image props
+type SingleImageProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   imageSrc: string;
@@ -23,14 +32,101 @@ type LightboxProps = {
   postedDate?: string | null;
 };
 
-export default function ImageLightbox({
-  open,
-  onOpenChange,
-  imageSrc,
-  photographer = null,
-  views = null,
-  postedDate = null,
-}: LightboxProps) {
+// Gallery props for navigation
+type GalleryProps = {
+  images: { src: string; alt: string }[];
+  currentIndex: number;
+  onClose: () => void;
+  onNext: () => void;
+  onPrev: () => void;
+};
+
+type LightboxProps = SingleImageProps | GalleryProps;
+
+// Type guard to check if props are gallery props
+function isGalleryProps(props: LightboxProps): props is GalleryProps {
+  return "images" in props && "currentIndex" in props;
+}
+
+export default function ImageLightbox(props: LightboxProps) {
+  // Gallery mode with navigation
+  if (isGalleryProps(props)) {
+    const { images, currentIndex, onClose, onNext, onPrev } = props;
+    const currentImage = images[currentIndex];
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center"
+        onClick={onClose}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-white hover:text-gray-300 z-10"
+        >
+          <X className="h-8 w-8" />
+        </button>
+
+        {/* Previous button */}
+        {images.length > 1 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onPrev();
+            }}
+            className="absolute left-4 text-white hover:text-gray-300 z-10 p-2 bg-black/50 rounded-full"
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </button>
+        )}
+
+        {/* Image */}
+        <div
+          className="relative max-w-4xl max-h-[90vh] w-full h-full mx-16"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Image
+            src={currentImage.src}
+            alt={currentImage.alt}
+            fill
+            unoptimized
+            className="object-contain"
+          />
+        </div>
+
+        {/* Next button */}
+        {images.length > 1 && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onNext();
+            }}
+            className="absolute right-4 text-white hover:text-gray-300 z-10 p-2 bg-black/50 rounded-full"
+          >
+            <ChevronRight className="h-8 w-8" />
+          </button>
+        )}
+
+        {/* Image counter */}
+        {images.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
+            {currentIndex + 1} / {images.length}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Single image mode (original behavior)
+  const {
+    open,
+    onOpenChange,
+    imageSrc,
+    photographer = null,
+    views = null,
+    postedDate = null,
+  } = props;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {open && imageSrc && (
@@ -70,6 +166,7 @@ export default function ImageLightbox({
                 src={imageSrc}
                 alt="Gallery image"
                 fill
+                unoptimized
                 className="object-contain"
               />
             </div>

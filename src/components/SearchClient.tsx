@@ -3,92 +3,39 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter } from "lucide-react";
-import PackageCard from "@/components/PackageCard";
+import { Search, Filter, CheckCircle } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import API from "@/lib/api";
 
-const trendingPackages = [
-  {
-    id: "1",
-    title: "The Bronze Wedding",
-    photographer: "Anatar Joseph",
-    photographerAvatar: "/avatar-anatar.png",
-    price: 5000,
-    rating: 5.0,
-    reviews: 30,
-    eventsCompleted: 33,
-    location: "Abossey-Okai, Accra",
-    category: "White Wedding",
-    features: [
-      "6 Hours Photography Coverage",
-      "High-res images",
-      "Online gallery",
-    ],
-    description:
-      "A warm, cinematic wedding package focused on cultural ceremonies.",
-  },
-  {
-    id: "2",
-    title: "Golden Moments",
-    photographer: "Nana Ama",
-    photographerAvatar: "/avatar-placeholder.png",
-    price: 4200,
-    rating: 4.8,
-    reviews: 18,
-    eventsCompleted: 20,
-    location: "Kumasi",
-    category: "Engagement",
-    features: ["4 Hours Coverage", "2 Photographers", "Album"],
-    description: "Sweet engagement sessions with candid and posed coverage.",
-  },
-  {
-    id: "3",
-    title: "Cultural Highlights",
-    photographer: "Kojo Mensah",
-    photographerAvatar: "/avatar-placeholder.png",
-    price: 3500,
-    rating: 4.7,
-    reviews: 12,
-    eventsCompleted: 15,
-    location: "Takoradi",
-    category: "Event",
-    features: ["3 Hours Coverage", "Highlight Reel"],
-    description: "Perfect for cultural events and intimate celebrations.",
-  },
-];
+type APIPackage = {
+  id: string;
+  service_id: string;
+  vendor_id: string;
+  title: string;
+  details: string[] | null;
+  price: number;
+  image: string | null;
+  status: string | null;
+};
 
-const mockPhotographers = [
-  {
-    id: "p1",
-    name: "Anatar Joseph",
-    avatar: "/avatar-anatar.png",
-    location: "Abossey-Okai, Accra",
-    rating: 4.9,
-  },
-  {
-    id: "p2",
-    name: "Nana Ama",
-    avatar: "/avatar-placeholder.png",
-    location: "Kumasi",
-    rating: 4.7,
-  },
-  {
-    id: "p3",
-    name: "Kojo Mensah",
-    avatar: "/avatar-placeholder.png",
-    location: "Takoradi",
-    rating: 4.8,
-  },
-];
+type APIProfile = {
+  id: string;
+  name: string | null;
+  username: string;
+  photo_url: string | null;
+  location: string | null;
+};
 
-const portfolioShots = Array.from(
-  { length: 24 },
-  (_, i) => `/portfolio-${(i % 15) + 1}.png`
-);
+type PortfolioItem = {
+  id: string;
+  photo_url: string;
+  caption: string | null;
+  owner_id: string;
+};
 
 export default function SearchClient() {
   const searchParams = useSearchParams();
@@ -100,6 +47,52 @@ export default function SearchClient() {
     "packages" | "photographer" | "portfolio"
   >("packages");
   const [filterApplied, setFilterApplied] = useState(false);
+
+  // API data states
+  const [packages, setPackages] = useState<APIPackage[]>([]);
+  const [profiles, setProfiles] = useState<APIProfile[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch data from API
+  useEffect(() => {
+    async function fetchData() {
+      setLoading(true);
+      try {
+        const [packagesRes, profilesRes, portfolioRes] = await Promise.all([
+          API.get("/v1/packages/").catch(() => ({ data: [] })),
+          API.get("/v1/profile/").catch(() => ({ data: [] })),
+          API.get("/v1/portfolio/").catch(() => ({ data: [] })),
+        ]);
+        setPackages(packagesRes.data || []);
+        setProfiles(profilesRes.data || []);
+        setPortfolio(portfolioRes.data || []);
+      } catch (err) {
+        console.log("Could not load search data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const q = searchParams?.get("q") ?? "";
+    setQuery(q);
+  }, [searchParams]);
+
+  // Filter data based on search query
+  const filteredPackages = packages.filter((pkg) =>
+    pkg.title.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredProfiles = profiles.filter((p) =>
+    (p.name || p.username).toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredPortfolio = portfolio.filter((item) =>
+    (item.caption || "").toLowerCase().includes(query.toLowerCase())
+  );
 
   useEffect(() => {
     const q = searchParams?.get("q") ?? "";
@@ -209,96 +202,149 @@ export default function SearchClient() {
             {selectedFilter === "portfolio" && "Portfolio"}
           </h2>
 
-          {selectedFilter === "packages" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {trendingPackages
-                .filter((pkg) =>
-                  pkg.title.toLowerCase().includes(query.toLowerCase())
-                )
-                .map((pkg) => (
-                  <PackageCard key={pkg.id} pkg={pkg} onOpenModal={() => {}} />
-                ))}
-            </div>
-          )}
-
-          {selectedFilter === "photographer" && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {mockPhotographers
-                .filter((p) =>
-                  p.name.toLowerCase().includes(query.toLowerCase())
-                )
-                .map((p) => (
-                  <div
-                    key={p.id}
-                    className="bg-white rounded-xl p-4 flex items-center gap-4 shadow"
-                  >
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={p.avatar} />
-                      <AvatarFallback>
-                        {p.name
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <Link
-                        href={`/profiles/${p.id}`}
-                        className="font-medium text-gray-900"
+          {loading ? (
+            <div className="text-center py-12 text-gray-500">Loading...</div>
+          ) : (
+            <>
+              {selectedFilter === "packages" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {filteredPackages.length > 0 ? (
+                    filteredPackages.map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
                       >
-                        {p.name}
-                      </Link>
-                      <div className="text-sm text-gray-500">
-                        {p.location} • {p.rating}
+                        {pkg.image && (
+                          <div className="relative h-48 w-full">
+                            <Image
+                              src={pkg.image}
+                              alt={pkg.title}
+                              fill
+                              unoptimized
+                              className="object-cover"
+                            />
+                          </div>
+                        )}
+                        <div className="p-5">
+                          <h4 className="font-bold text-lg mb-2">
+                            {pkg.title}
+                          </h4>
+                          {pkg.details && pkg.details.length > 0 && (
+                            <ul className="text-gray-600 text-sm mb-4 space-y-1">
+                              {pkg.details.slice(0, 3).map((detail, i) => (
+                                <li key={i} className="flex items-start gap-2">
+                                  <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                                  <span>{detail}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <p className="text-2xl font-bold text-purple-600 mb-4">
+                            GH₵ {pkg.price.toLocaleString()}
+                          </p>
+                          <Link href={`/profiles/${pkg.vendor_id}`}>
+                            <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full">
+                              View Vendor
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 text-center py-12 text-gray-500">
+                      No packages found
                     </div>
-                  </div>
-                ))}
-            </div>
-          )}
+                  )}
+                </div>
+              )}
 
-          {selectedFilter === "portfolio" && (
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {portfolioShots
-                .filter((src) =>
-                  src.toLowerCase().includes(query.toLowerCase())
-                )
-                .map((src, i) => (
-                  <div
-                    key={i}
-                    className="relative aspect-square rounded-2xl overflow-hidden shadow-md"
-                  >
-                    <Image
-                      src={src}
-                      alt="Portfolio"
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                ))}
-            </div>
+              {selectedFilter === "photographer" && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {filteredProfiles.length > 0 ? (
+                    filteredProfiles.map((p) => (
+                      <div
+                        key={p.id}
+                        className="bg-white rounded-xl p-4 flex items-center gap-4 shadow"
+                      >
+                        <Avatar className="h-12 w-12">
+                          <AvatarImage src={p.photo_url || undefined} />
+                          <AvatarFallback>
+                            {(p.name || p.username)
+                              .split(" ")
+                              .map((n) => n[0])
+                              .join("")
+                              .slice(0, 2)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <Link
+                            href={`/profiles/${p.id}`}
+                            className="font-medium text-gray-900 hover:text-purple-600"
+                          >
+                            {p.name || p.username}
+                          </Link>
+                          {p.location && (
+                            <div className="text-sm text-gray-500">
+                              {p.location}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-span-3 text-center py-12 text-gray-500">
+                      No photographers found
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedFilter === "portfolio" && (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                  {filteredPortfolio.length > 0 ? (
+                    filteredPortfolio.map((item) => (
+                      <Link key={item.id} href={`/profiles/${item.owner_id}`}>
+                        <div className="relative aspect-square rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+                          <Image
+                            src={item.photo_url}
+                            alt={item.caption || "Portfolio"}
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="col-span-6 text-center py-12 text-gray-500">
+                      No portfolio items found
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
 
       {/* Trending Portfolios */}
-      {!filterApplied && (
+      {!filterApplied && portfolio.length > 0 && (
         <section className="py-12 px-4 bg-gray-50">
           <div className="max-w-7xl mx-auto">
             <h2 className="text-3xl font-bold mb-8">Trending Portfolios</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {Array.from({ length: 24 }, (_, i) => (
-                <div
-                  key={i}
-                  className="relative aspect-square rounded-2xl overflow-hidden shadow-md"
-                >
-                  <Image
-                    src="/portfolio-shot.png"
-                    alt="Portfolio"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
+              {portfolio.slice(0, 24).map((item) => (
+                <Link key={item.id} href={`/profiles/${item.owner_id}`}>
+                  <div className="relative aspect-square rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow">
+                    <Image
+                      src={item.photo_url}
+                      alt={item.caption || "Portfolio"}
+                      fill
+                      unoptimized
+                      className="object-cover"
+                    />
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
