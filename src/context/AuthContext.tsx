@@ -73,7 +73,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const rawUser = localStorage.getItem("imfo_user");
       const token = localStorage.getItem("imfo_token");
-      if (rawUser) setUser(JSON.parse(rawUser));
       if (token) {
         apiMe()
           .then(async (data) => {
@@ -91,10 +90,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           })
           .catch(() => {
-            setUser(rawUser ? JSON.parse(rawUser || "null") : null);
+            // Token is invalid, clear everything
+            localStorage.removeItem("imfo_token");
+            localStorage.removeItem("imfo_user");
+            setUser(null);
           })
           .finally(() => setLoading(false));
       } else {
+        // No token, clear user data
+        if (rawUser) {
+          localStorage.removeItem("imfo_user");
+        }
+        setUser(null);
         setLoading(false);
       }
     } catch (e) {

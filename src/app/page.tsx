@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle } from "lucide-react";
+import { Search, CheckCircle, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import ImageLightbox from "@/components/ImageLightbox";
 import Footer from "@/components/Footer";
+import PackageDetailsModal, {
+  PackageData,
+} from "@/components/PackageDetailsModal";
 import API from "@/lib/api";
 
 type PortfolioItem = {
@@ -35,8 +36,6 @@ export default function HomePage() {
   const [searchTerm, setSearchTerm] = useState("");
   const router = useRouter();
 
-  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-
   // API portfolio data
   const [portfolioItems, setPortfolioItems] = useState<PortfolioItem[]>([]);
   const [portfolioLoading, setPortfolioLoading] = useState(true);
@@ -44,6 +43,12 @@ export default function HomePage() {
   // API packages data
   const [apiPackages, setApiPackages] = useState<APIPackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
+
+  // Package modal state
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(
+    null
+  );
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
 
   // Fetch portfolio items from API
   useEffect(() => {
@@ -141,8 +146,9 @@ export default function HomePage() {
             Featured Packages
           </h2>
           {packagesLoading ? (
-            <div className="text-center py-12 text-gray-500">
-              Loading packages...
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+              <span className="ml-2 text-gray-500">Loading packages...</span>
             </div>
           ) : apiPackages.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -177,11 +183,15 @@ export default function HomePage() {
                     <p className="text-2xl font-bold text-purple-600 mb-4">
                       GH₵ {pkg.price.toLocaleString()}
                     </p>
-                    <Link href={`/profiles/${pkg.vendor_id}`}>
-                      <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full">
-                        View Vendor
-                      </Button>
-                    </Link>
+                    <Button
+                      className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full"
+                      onClick={() => {
+                        setSelectedPackage(pkg);
+                        setIsPackageModalOpen(true);
+                      }}
+                    >
+                      View Details
+                    </Button>
                   </div>
                 </div>
               ))}
@@ -194,81 +204,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Portfolio Shots */}
-      <section className="py-16 px-4 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Featured Portfolio
-          </h2>
-          {portfolioLoading ? (
-            <div className="text-center py-12 text-gray-500">
-              Loading portfolio...
-            </div>
-          ) : portfolioItems.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {portfolioItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="relative aspect-square rounded-xl overflow-hidden shadow-md cursor-pointer group"
-                  onClick={() => setLightboxSrc(item.photo_url)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ")
-                      setLightboxSrc(item.photo_url);
-                  }}
-                >
-                  <Image
-                    src={item.photo_url}
-                    alt={item.caption || "Portfolio"}
-                    fill
-                    unoptimized
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  {item.caption && (
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                      <p className="text-white text-sm line-clamp-2">
-                        {item.caption}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            // Fallback to static images if no API data
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-              {Array.from({ length: 15 }, (_, i) => i + 1).map((num) => (
-                <div
-                  key={num}
-                  className="relative aspect-square rounded-xl overflow-hidden shadow-md cursor-pointer"
-                  onClick={() => setLightboxSrc(`/portfolio-${num}.png`)}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ")
-                      setLightboxSrc(`/portfolio-${num}.png`);
-                  }}
-                >
-                  <Image
-                    src={`/portfolio-${num}.png`}
-                    alt="Portfolio"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      <ImageLightbox
-        open={!!lightboxSrc}
-        onOpenChange={(open) => {
-          if (!open) setLightboxSrc(null);
+      <PackageDetailsModal
+        isOpen={isPackageModalOpen}
+        onClose={() => {
+          setIsPackageModalOpen(false);
+          setSelectedPackage(null);
         }}
-        imageSrc={lightboxSrc || ""}
+        packageData={selectedPackage}
       />
 
       <Footer />

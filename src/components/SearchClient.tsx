@@ -3,12 +3,15 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, CheckCircle } from "lucide-react";
+import { Search, Filter, CheckCircle, Loader2 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import Link from "next/link";
 import Footer from "@/components/Footer";
+import PackageDetailsModal, {
+  PackageData,
+} from "@/components/PackageDetailsModal";
 import API from "@/lib/api";
 
 type APIPackage = {
@@ -37,6 +40,12 @@ type PortfolioItem = {
   owner_id: string;
 };
 
+type Service = {
+  id: string;
+  name: string;
+  description: string;
+};
+
 export default function SearchClient() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -52,21 +61,31 @@ export default function SearchClient() {
   const [packages, setPackages] = useState<APIPackage[]>([]);
   const [profiles, setProfiles] = useState<APIProfile[]>([]);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Package modal state
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(
+    null
+  );
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
 
   // Fetch data from API
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
       try {
-        const [packagesRes, profilesRes, portfolioRes] = await Promise.all([
-          API.get("/v1/packages/").catch(() => ({ data: [] })),
-          API.get("/v1/profile/").catch(() => ({ data: [] })),
-          API.get("/v1/portfolio/").catch(() => ({ data: [] })),
-        ]);
+        const [packagesRes, profilesRes, portfolioRes, servicesRes] =
+          await Promise.all([
+            API.get("/v1/packages/").catch(() => ({ data: [] })),
+            API.get("/v1/profile/").catch(() => ({ data: [] })),
+            API.get("/v1/portfolio/").catch(() => ({ data: [] })),
+            API.get("/v1/service/").catch(() => ({ data: [] })),
+          ]);
         setPackages(packagesRes.data || []);
         setProfiles(profilesRes.data || []);
         setPortfolio(portfolioRes.data || []);
+        setServices(servicesRes.data || []);
       } catch (err) {
         console.log("Could not load search data");
       } finally {
@@ -81,10 +100,18 @@ export default function SearchClient() {
     setQuery(q);
   }, [searchParams]);
 
-  // Filter data based on search query
-  const filteredPackages = packages.filter((pkg) =>
-    pkg.title.toLowerCase().includes(query.toLowerCase())
-  );
+  // Check if there's an active search query
+  const hasSearchQuery = query.trim().length > 0;
+
+  // Filter data based on search query (search in title AND details)
+  const filteredPackages = packages.filter((pkg) => {
+    const searchLower = query.toLowerCase();
+    const titleMatch = pkg.title.toLowerCase().includes(searchLower);
+    const detailsMatch = pkg.details?.some((detail) =>
+      detail.toLowerCase().includes(searchLower)
+    );
+    return titleMatch || detailsMatch;
+  });
 
   const filteredProfiles = profiles.filter((p) =>
     (p.name || p.username).toLowerCase().includes(query.toLowerCase())
@@ -94,10 +121,64 @@ export default function SearchClient() {
     (item.caption || "").toLowerCase().includes(query.toLowerCase())
   );
 
-  useEffect(() => {
-    const q = searchParams?.get("q") ?? "";
-    setQuery(q);
-  }, [searchParams]);
+  // Group packages by service for when no search query
+  const packagesByService = services.reduce((acc, service) => {
+    const servicePackages = packages.filter(
+      (pkg) => pkg.service_id === service.id
+    );
+    if (servicePackages.length > 0) {
+      acc[service.id] = {
+        name: service.name,
+        packages: servicePackages,
+      };
+    }
+    return acc;
+  }, {} as Record<string, { name: string; packages: APIPackage[] }>);
+
+  // Helper function to render a package card
+  const renderPackageCard = (pkg: APIPackage) => (
+    <div
+      key={pkg.id}
+      className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
+    >
+      {pkg.image && (
+        <div className="relative h-48 w-full">
+          <Image
+            src={pkg.image}
+            alt={pkg.title}
+            fill
+            unoptimized
+            className="object-cover"
+          />
+        </div>
+      )}
+      <div className="p-5">
+        <h4 className="font-bold text-lg mb-2">{pkg.title}</h4>
+        {pkg.details && pkg.details.length > 0 && (
+          <ul className="text-gray-600 text-sm mb-4 space-y-1">
+            {pkg.details.slice(0, 3).map((detail, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
+                <span>{detail}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+        <p className="text-2xl font-bold text-purple-600 mb-4">
+          GH₵ {pkg.price.toLocaleString()}
+        </p>
+        <Button
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full"
+          onClick={() => {
+            setSelectedPackage(pkg);
+            setIsPackageModalOpen(true);
+          }}
+        >
+          View Details
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -196,63 +277,26 @@ export default function SearchClient() {
       {/* Results */}
       <section className="py-12 px-4">
         <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold mb-6">
-            {selectedFilter === "packages" && "Packages"}
-            {selectedFilter === "photographer" && "Photographers"}
-            {selectedFilter === "portfolio" && "Portfolio"}
-          </h2>
-
           {loading ? (
-            <div className="text-center py-12 text-gray-500">Loading...</div>
-          ) : (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : hasSearchQuery ? (
+            // Show search results when there's a query
             <>
+              <h2 className="text-3xl font-bold mb-6">
+                {selectedFilter === "packages" && "Packages"}
+                {selectedFilter === "photographer" && "Photographers"}
+                {selectedFilter === "portfolio" && "Portfolio"}
+              </h2>
+
               {selectedFilter === "packages" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {filteredPackages.length > 0 ? (
-                    filteredPackages.map((pkg) => (
-                      <div
-                        key={pkg.id}
-                        className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                      >
-                        {pkg.image && (
-                          <div className="relative h-48 w-full">
-                            <Image
-                              src={pkg.image}
-                              alt={pkg.title}
-                              fill
-                              unoptimized
-                              className="object-cover"
-                            />
-                          </div>
-                        )}
-                        <div className="p-5">
-                          <h4 className="font-bold text-lg mb-2">
-                            {pkg.title}
-                          </h4>
-                          {pkg.details && pkg.details.length > 0 && (
-                            <ul className="text-gray-600 text-sm mb-4 space-y-1">
-                              {pkg.details.slice(0, 3).map((detail, i) => (
-                                <li key={i} className="flex items-start gap-2">
-                                  <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                                  <span>{detail}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                          <p className="text-2xl font-bold text-purple-600 mb-4">
-                            GH₵ {pkg.price.toLocaleString()}
-                          </p>
-                          <Link href={`/profiles/${pkg.vendor_id}`}>
-                            <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full">
-                              View Vendor
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    ))
+                    filteredPackages.map(renderPackageCard)
                   ) : (
                     <div className="col-span-3 text-center py-12 text-gray-500">
-                      No packages found
+                      No packages found for &quot;{query}&quot;
                     </div>
                   )}
                 </div>
@@ -293,7 +337,7 @@ export default function SearchClient() {
                     ))
                   ) : (
                     <div className="col-span-3 text-center py-12 text-gray-500">
-                      No photographers found
+                      No photographers found for &quot;{query}&quot;
                     </div>
                   )}
                 </div>
@@ -317,39 +361,55 @@ export default function SearchClient() {
                     ))
                   ) : (
                     <div className="col-span-6 text-center py-12 text-gray-500">
-                      No portfolio items found
+                      No portfolio items found for &quot;{query}&quot;
                     </div>
                   )}
                 </div>
               )}
             </>
+          ) : (
+            // Show packages by service category when no search query
+            <div className="space-y-12">
+              {Object.entries(packagesByService).length > 0 ? (
+                // Show packages grouped by service
+                Object.entries(packagesByService).map(
+                  ([serviceId, { name, packages: servicePackages }]) => (
+                    <div key={serviceId}>
+                      <h2 className="text-2xl font-bold mb-6">
+                        Trending {name} Packages
+                      </h2>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {servicePackages.slice(0, 6).map(renderPackageCard)}
+                      </div>
+                    </div>
+                  )
+                )
+              ) : packages.length > 0 ? (
+                // Fallback: show all packages if no service grouping works
+                <div>
+                  <h2 className="text-2xl font-bold mb-6">Featured Packages</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {packages.slice(0, 12).map(renderPackageCard)}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12 text-gray-500">
+                  No packages available yet
+                </div>
+              )}
+            </div>
           )}
         </div>
       </section>
 
-      {/* Trending Portfolios */}
-      {!filterApplied && portfolio.length > 0 && (
-        <section className="py-12 px-4 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl font-bold mb-8">Trending Portfolios</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-              {portfolio.slice(0, 24).map((item) => (
-                <Link key={item.id} href={`/profiles/${item.owner_id}`}>
-                  <div className="relative aspect-square rounded-2xl overflow-hidden shadow-md hover:shadow-lg transition-shadow">
-                    <Image
-                      src={item.photo_url}
-                      alt={item.caption || "Portfolio"}
-                      fill
-                      unoptimized
-                      className="object-cover"
-                    />
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      <PackageDetailsModal
+        isOpen={isPackageModalOpen}
+        onClose={() => {
+          setIsPackageModalOpen(false);
+          setSelectedPackage(null);
+        }}
+        packageData={selectedPackage}
+      />
 
       <Footer />
     </>

@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/card";
 import Footer from "@/components/Footer";
 import API from "@/lib/api";
-import { me as getMe } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 import {
   Plus,
   Loader2,
@@ -72,9 +72,22 @@ type User = {
   email: string;
 };
 
+type Profile = {
+  id: string;
+  name: string | null;
+  username: string;
+  bio: string | null;
+  location: string | null;
+  photo_url: string | null;
+  header_url: string | null;
+  services_id: string[];
+  website: string | null;
+};
+
 export default function PackagesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -82,6 +95,11 @@ export default function PackagesPage() {
   const [packages, setPackages] = useState<PackageType[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingPackage, setEditingPackage] = useState<PackageType | null>(
+    null
+  );
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   // Form state for new package
   const [title, setTitle] = useState("");
@@ -95,7 +113,23 @@ export default function PackagesPage() {
   const [vendorAddress, setVendorAddress] = useState("");
   const [packageImage, setPackageImage] = useState<File | null>(null);
 
+  // Edit form state
+  const [editTitle, setEditTitle] = useState("");
+  const [editDetails, setEditDetails] = useState("");
+  const [editPrice, setEditPrice] = useState("");
+  const [editServiceId, setEditServiceId] = useState("");
+  const [editVendorName, setEditVendorName] = useState("");
+  const [editContactPerson, setEditContactPerson] = useState("");
+  const [editVendorPhone, setEditVendorPhone] = useState("");
+  const [editVendorEmail, setEditVendorEmail] = useState("");
+  const [editVendorAddress, setEditVendorAddress] = useState("");
+  const [editPackageImage, setEditPackageImage] = useState<File | null>(null);
+
   const imageInputRef = useRef<HTMLInputElement>(null);
+  const editImageInputRef = useRef<HTMLInputElement>(null);
+
+  // Get user from AuthContext
+  const { user: authUser } = useAuth();
 
   // Fetch user and packages
   useEffect(() => {
@@ -104,21 +138,29 @@ export default function PackagesPage() {
       setError(null);
 
       try {
-        // Get current user
-        const userData = await getMe();
-        setUser(userData);
+        // Use authUser from context
+        if (!authUser?.id) {
+          setError("Please log in to view your packages");
+          setLoading(false);
+          return;
+        }
 
-        if (userData?.id) {
-          // Get user's packages (vendor_id is the user's id)
-          try {
-            const packagesRes = await API.get(
-              `/v1/packages/vendor/${userData.id}`
-            );
-            setPackages(packagesRes.data || []);
-          } catch (pkgErr) {
-            console.log("No packages found or error loading packages");
-            setPackages([]);
-          }
+        // Set user from context
+        setUser({
+          id: authUser.id,
+          username: authUser.name || null,
+          email: "",
+        });
+
+        // Get user's packages (vendor_id is the user's id)
+        try {
+          const packagesRes = await API.get(
+            `/v1/packages/vendor/${authUser.id}`
+          );
+          setPackages(packagesRes.data || []);
+        } catch (pkgErr) {
+          console.log("No packages found or error loading packages");
+          setPackages([]);
         }
 
         // Get available services
@@ -128,16 +170,35 @@ export default function PackagesPage() {
         } catch (servErr) {
           console.log("Could not load services");
         }
+
+        // Get user profile for pre-populating vendor details
+        try {
+          const profileRes = await API.get(`/v1/profile/id/${authUser.id}`);
+          setProfile(profileRes.data || null);
+        } catch (profileErr) {
+          console.log("Could not load profile for vendor details");
+        }
       } catch (err: any) {
         console.error("Failed to load data:", err);
-        setError("Please log in to view your packages");
+        setError("Failed to load packages");
       } finally {
         setLoading(false);
       }
     }
 
-    fetchData();
-  }, []);
+    if (authUser?.id) {
+      fetchData();
+    } else {
+      // Wait a moment for auth to initialize
+      const timer = setTimeout(() => {
+        if (!authUser?.id) {
+          setError("Please log in to view your packages");
+          setLoading(false);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authUser]);
 
   const resetForm = () => {
     setTitle("");
@@ -152,6 +213,134 @@ export default function PackagesPage() {
     setPackageImage(null);
     if (imageInputRef.current) {
       imageInputRef.current.value = "";
+    }
+  };
+
+  // Open create dialog and pre-populate vendor details from profile
+  const openCreateDialog = () => {
+    resetForm();
+    // Pre-populate vendor details from profile if available
+    if (profile) {
+      setVendorName(profile.name || profile.username || "");
+      setContactPerson(profile.name || profile.username || "");
+      setVendorAddress(profile.location || "");
+    }
+    // Use email and phone from stored user if available
+    try {
+      const storedUser = localStorage.getItem("imfo_user");
+      if (storedUser) {
+        const userData = JSON.parse(storedUser);
+        if (userData?.email) {
+          setVendorEmail(userData.email);
+        }
+        if (userData?.phone) {
+          setVendorPhone(userData.phone);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    setIsDialogOpen(true);
+  };
+
+  const openEditDialog = (pkg: PackageType) => {
+    setEditingPackage(pkg);
+    setEditTitle(pkg.title);
+    setEditDetails(pkg.details?.join(", ") || "");
+    setEditPrice(pkg.price.toString());
+    setEditServiceId(pkg.service_id);
+    setEditVendorName(pkg.vendor_name || "");
+    setEditContactPerson(pkg.contact_person || "");
+    setEditVendorPhone(pkg.vendor_phone || "");
+    setEditVendorEmail(pkg.vendor_email || "");
+    setEditVendorAddress(pkg.vendor_address || "");
+    setEditPackageImage(null);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdatePackage = async () => {
+    if (!editingPackage) return;
+
+    if (
+      !editServiceId ||
+      !editTitle ||
+      !editPrice ||
+      !editVendorName ||
+      !editContactPerson ||
+      !editVendorPhone ||
+      !editVendorEmail ||
+      !editVendorAddress
+    ) {
+      setError("Please fill in all required fields");
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("service_id", editServiceId);
+      formData.append("title", editTitle);
+      formData.append("details", editDetails);
+      formData.append("price", editPrice);
+      formData.append("vendor_name", editVendorName);
+      formData.append("contact_person", editContactPerson);
+      formData.append("vendor_phone", editVendorPhone);
+      formData.append("vendor_email", editVendorEmail);
+      formData.append("vendor_address", editVendorAddress);
+
+      if (editPackageImage) {
+        formData.append("image", editPackageImage);
+      }
+
+      await API.put(`/v1/packages/${editingPackage.id}`, formData, {
+        timeout: 120000,
+      });
+
+      setSuccess("Package updated successfully!");
+      setIsEditDialogOpen(false);
+      setEditingPackage(null);
+
+      // Refresh packages list
+      if (user?.id) {
+        const packagesRes = await API.get(`/v1/packages/vendor/${user.id}`);
+        setPackages(packagesRes.data || []);
+      }
+
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      console.error("Failed to update package:", err);
+      setError(err.response?.data?.detail || "Failed to update package");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeletePackage = async (packageId: string) => {
+    if (
+      !confirm(
+        "Are you sure you want to delete this package? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setDeleting(packageId);
+    setError(null);
+
+    try {
+      await API.delete(`/v1/packages/${packageId}`);
+
+      setSuccess("Package deleted successfully!");
+      setPackages(packages.filter((p) => p.id !== packageId));
+
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err: any) {
+      console.error("Failed to delete package:", err);
+      setError(err.response?.data?.detail || "Failed to delete package");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -261,176 +450,178 @@ export default function PackagesPage() {
             </p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-purple-600 hover:bg-purple-700">
-                <Plus className="mr-2 h-4 w-4" />
-                Create Package
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Create New Package</DialogTitle>
-                <DialogDescription>
-                  Add a new service package for your customers
-                </DialogDescription>
-              </DialogHeader>
+          <Button
+            className="bg-purple-600 hover:bg-purple-700"
+            onClick={openCreateDialog}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Create Package
+          </Button>
+        </div>
 
-              <div className="space-y-4 mt-4">
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create New Package</DialogTitle>
+              <DialogDescription>
+                Add a new service package for your customers
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Package Title *</Label>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g. Wedding Photography Basic"
+                  />
+                </div>
+                <div>
+                  <Label>Service Type *</Label>
+                  <Select value={serviceId} onValueChange={setServiceId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>Price (GHS) *</Label>
+                <Input
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  placeholder="e.g. 5000"
+                />
+              </div>
+
+              <div>
+                <Label>Package Details (comma-separated)</Label>
+                <textarea
+                  className="w-full mt-2 p-3 border rounded-lg resize-none"
+                  rows={3}
+                  value={details}
+                  onChange={(e) => setDetails(e.target.value)}
+                  placeholder="e.g. 4 hours coverage, 100 edited photos, Online gallery"
+                />
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3">Vendor Information</h3>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
-                    <Label>Package Title *</Label>
+                    <Label>Business/Vendor Name *</Label>
                     <Input
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Wedding Photography Basic"
+                      value={vendorName}
+                      onChange={(e) => setVendorName(e.target.value)}
+                      placeholder="Your business name"
                     />
                   </div>
                   <div>
-                    <Label>Service Type *</Label>
-                    <Select value={serviceId} onValueChange={setServiceId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a service" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {services.map((service) => (
-                          <SelectItem key={service.id} value={service.id}>
-                            {service.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Price (GHS) *</Label>
-                  <Input
-                    type="number"
-                    value={price}
-                    onChange={(e) => setPrice(e.target.value)}
-                    placeholder="e.g. 5000"
-                  />
-                </div>
-
-                <div>
-                  <Label>Package Details (comma-separated)</Label>
-                  <textarea
-                    className="w-full mt-2 p-3 border rounded-lg resize-none"
-                    rows={3}
-                    value={details}
-                    onChange={(e) => setDetails(e.target.value)}
-                    placeholder="e.g. 4 hours coverage, 100 edited photos, Online gallery"
-                  />
-                </div>
-
-                <div className="border-t pt-4">
-                  <h3 className="font-semibold mb-3">Vendor Information</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <Label>Business/Vendor Name *</Label>
-                      <Input
-                        value={vendorName}
-                        onChange={(e) => setVendorName(e.target.value)}
-                        placeholder="Your business name"
-                      />
-                    </div>
-                    <div>
-                      <Label>Contact Person *</Label>
-                      <Input
-                        value={contactPerson}
-                        onChange={(e) => setContactPerson(e.target.value)}
-                        placeholder="Your name"
-                      />
-                    </div>
-                    <div>
-                      <Label>Phone Number *</Label>
-                      <Input
-                        value={vendorPhone}
-                        onChange={(e) => setVendorPhone(e.target.value)}
-                        placeholder="+233..."
-                      />
-                    </div>
-                    <div>
-                      <Label>Email *</Label>
-                      <Input
-                        type="email"
-                        value={vendorEmail}
-                        onChange={(e) => setVendorEmail(e.target.value)}
-                        placeholder="your@email.com"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-4">
-                    <Label>Business Address *</Label>
+                    <Label>Contact Person *</Label>
                     <Input
-                      value={vendorAddress}
-                      onChange={(e) => setVendorAddress(e.target.value)}
-                      placeholder="Your business address"
+                      value={contactPerson}
+                      onChange={(e) => setContactPerson(e.target.value)}
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone Number *</Label>
+                    <Input
+                      value={vendorPhone}
+                      onChange={(e) => setVendorPhone(e.target.value)}
+                      placeholder="+233..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input
+                      type="email"
+                      value={vendorEmail}
+                      onChange={(e) => setVendorEmail(e.target.value)}
+                      placeholder="your@email.com"
                     />
                   </div>
                 </div>
-
-                <div className="border-t pt-4">
-                  <Label>Package Image</Label>
-                  <div className="mt-2">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) =>
-                        setPackageImage(e.target.files?.[0] || null)
-                      }
-                      className="hidden"
-                      id="package-image"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => imageInputRef.current?.click()}
-                    >
-                      <ImageIcon className="mr-2 h-4 w-4" />
-                      {packageImage ? packageImage.name : "Select Image"}
-                    </Button>
-                  </div>
+                <div className="mt-4">
+                  <Label>Business Address *</Label>
+                  <Input
+                    value={vendorAddress}
+                    onChange={(e) => setVendorAddress(e.target.value)}
+                    placeholder="Your business address"
+                  />
                 </div>
+              </div>
 
-                {error && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                    <p className="text-red-600 text-sm">{error}</p>
-                  </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-4">
+              <div className="border-t pt-4">
+                <Label>Package Image</Label>
+                <div className="mt-2">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setPackageImage(e.target.files?.[0] || null)
+                    }
+                    className="hidden"
+                    id="package-image"
+                  />
                   <Button
+                    type="button"
                     variant="outline"
-                    onClick={() => {
-                      setIsDialogOpen(false);
-                      resetForm();
-                      setError(null);
-                    }}
+                    onClick={() => imageInputRef.current?.click()}
                   >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleCreatePackage}
-                    disabled={saving}
-                    className="bg-purple-600 hover:bg-purple-700"
-                  >
-                    {saving ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Creating...
-                      </>
-                    ) : (
-                      "Create Package"
-                    )}
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    {packageImage ? packageImage.name : "Select Image"}
                   </Button>
                 </div>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    resetForm();
+                    setError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreatePackage}
+                  disabled={saving}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Package"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {success && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6 flex items-center">
@@ -449,7 +640,7 @@ export default function PackagesPage() {
               Create your first service package to start receiving bookings
             </p>
             <Button
-              onClick={() => setIsDialogOpen(true)}
+              onClick={openCreateDialog}
               className="bg-purple-600 hover:bg-purple-700"
             >
               <Plus className="mr-2 h-4 w-4" />
@@ -512,9 +703,30 @@ export default function PackagesPage() {
                 </CardContent>
                 <CardFooter className="pt-2">
                   <div className="flex gap-2 w-full">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => openEditDialog(pkg)}
+                    >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleDeletePackage(pkg.id)}
+                      disabled={deleting === pkg.id}
+                    >
+                      {deleting === pkg.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </>
+                      )}
                     </Button>
                   </div>
                 </CardFooter>
@@ -522,6 +734,181 @@ export default function PackagesPage() {
             ))}
           </div>
         )}
+
+        {/* Edit Package Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Package</DialogTitle>
+              <DialogDescription>
+                Update your service package details
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 mt-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Package Title *</Label>
+                  <Input
+                    value={editTitle}
+                    onChange={(e) => setEditTitle(e.target.value)}
+                    placeholder="e.g. Wedding Photography Basic"
+                  />
+                </div>
+                <div>
+                  <Label>Service Type *</Label>
+                  <Select
+                    value={editServiceId}
+                    onValueChange={setEditServiceId}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a service" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {services.map((service) => (
+                        <SelectItem key={service.id} value={service.id}>
+                          {service.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <Label>Price (GHS) *</Label>
+                <Input
+                  type="number"
+                  value={editPrice}
+                  onChange={(e) => setEditPrice(e.target.value)}
+                  placeholder="e.g. 5000"
+                />
+              </div>
+
+              <div>
+                <Label>Package Details (comma-separated)</Label>
+                <textarea
+                  className="w-full mt-2 p-3 border rounded-lg resize-none"
+                  rows={3}
+                  value={editDetails}
+                  onChange={(e) => setEditDetails(e.target.value)}
+                  placeholder="e.g. 4 hours coverage, 100 edited photos, Online gallery"
+                />
+              </div>
+
+              <div className="border-t pt-4">
+                <h3 className="font-semibold mb-3">Vendor Information</h3>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>Business/Vendor Name *</Label>
+                    <Input
+                      value={editVendorName}
+                      onChange={(e) => setEditVendorName(e.target.value)}
+                      placeholder="Your business name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Contact Person *</Label>
+                    <Input
+                      value={editContactPerson}
+                      onChange={(e) => setEditContactPerson(e.target.value)}
+                      placeholder="Your name"
+                    />
+                  </div>
+                  <div>
+                    <Label>Phone Number *</Label>
+                    <Input
+                      value={editVendorPhone}
+                      onChange={(e) => setEditVendorPhone(e.target.value)}
+                      placeholder="+233..."
+                    />
+                  </div>
+                  <div>
+                    <Label>Email *</Label>
+                    <Input
+                      type="email"
+                      value={editVendorEmail}
+                      onChange={(e) => setEditVendorEmail(e.target.value)}
+                      placeholder="your@email.com"
+                    />
+                  </div>
+                </div>
+                <div className="mt-4">
+                  <Label>Business Address *</Label>
+                  <Input
+                    value={editVendorAddress}
+                    onChange={(e) => setEditVendorAddress(e.target.value)}
+                    placeholder="Your business address"
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <Label>Package Image</Label>
+                <p className="text-sm text-gray-500 mb-2">
+                  {editingPackage?.image
+                    ? "Current image will be kept unless you select a new one"
+                    : "No current image"}
+                </p>
+                <div className="mt-2">
+                  <input
+                    ref={editImageInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) =>
+                      setEditPackageImage(e.target.files?.[0] || null)
+                    }
+                    className="hidden"
+                    id="edit-package-image"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => editImageInputRef.current?.click()}
+                  >
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    {editPackageImage
+                      ? editPackageImage.name
+                      : "Select New Image"}
+                  </Button>
+                </div>
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-red-600 text-sm">{error}</p>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-3 pt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingPackage(null);
+                    setError(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdatePackage}
+                  disabled={saving}
+                  className="bg-purple-600 hover:bg-purple-700"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    "Update Package"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
       <Footer />
     </>

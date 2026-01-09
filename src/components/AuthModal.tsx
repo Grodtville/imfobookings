@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { X, Mail, ArrowLeft } from "lucide-react";
+import { X, Mail, ArrowLeft, Loader2 } from "lucide-react";
 import {
   tokenLogin as apiTokenLogin,
   createUser as apiCreateUser,
@@ -22,6 +22,7 @@ import {
 } from "@/lib/auth";
 import { handleAPIError } from "@/lib/auth-utils";
 import { signIn as nextSignIn, getSession } from "next-auth/react";
+import API from "@/lib/api";
 
 type Step =
   | "welcome"
@@ -209,28 +210,28 @@ export default function AuthModal({
                     if (res?.ok) {
                       const session = await getSession();
                       const access = (session as any)?.accessToken;
-                      const user = (session as any)?.user || null;
+                      const sessionUser = (session as any)?.user || null;
                       if (access) {
                         try {
                           localStorage.setItem("imfo_token", access);
                         } catch (err) {}
                       }
-                      if (user) {
+                      if (sessionUser) {
                         try {
                           localStorage.setItem(
                             "imfo_user",
-                            JSON.stringify(user)
+                            JSON.stringify(sessionUser)
                           );
                         } catch (err) {}
                         try {
-                          signIn(user, access || undefined);
+                          signIn(sessionUser, access || undefined);
                         } catch (e) {
                           /* ignore */
                         }
-                        handleClose();
-                        router.push("/");
-                        return;
                       }
+                      // Show role selection after successful signup
+                      setStep("role");
+                      return;
                     }
                     // fallback demo sign in
                     signInDemoUser();
@@ -242,7 +243,14 @@ export default function AuthModal({
                   }
                 }}
               >
-                {loading ? "Creating account..." : "Create account"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  "Create account"
+                )}
               </Button>
             </>
           )}
@@ -328,7 +336,14 @@ export default function AuthModal({
                   }
                 }}
               >
-                {loading ? "Logging in..." : "Log in"}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging in...
+                  </>
+                ) : (
+                  "Log in"
+                )}
               </Button>
             </>
           )}
@@ -361,18 +376,91 @@ export default function AuthModal({
               </p>
               <Button
                 className="w-full bg-purple-600 hover:bg-purple-700"
-                disabled={!role}
-                onClick={() => {
-                  // persist demo user as logged in
-                  signInDemoUser();
+                disabled={!role || loading}
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    // Try to update user role in backend
+                    const storedUser = localStorage.getItem("imfo_user");
+                    if (storedUser) {
+                      const userData = JSON.parse(storedUser);
+                      if (userData?.id) {
+                        // First try to get existing profile
+                        try {
+                          const profileRes = await API.get(
+                            `/v1/profile/id/${userData.id}`
+                          );
+                          // Profile exists, update it
+                          if (profileRes.data?.id) {
+                            await API.put(
+                              `/v1/profile/${profileRes.data.id}/edit`,
+                              {
+                                user_type: role,
+                              }
+                            );
+                          }
+                        } catch (err: any) {
+                          // Profile doesn't exist, try to create one
+                          if (err.response?.status === 404) {
+                            try {
+                              await API.post("/v1/profile/new-profile", {
+                                name: userData.name || userData.email || "",
+                                username:
+                                  userData.email ||
+                                  userData.name ||
+                                  `user_${Date.now()}`,
+                                user_type: role,
+                              });
+                            } catch (createErr) {
+                              console.log("Could not create profile with role");
+                            }
+                          } else {
+                            console.log("Could not update user role:", err);
+                          }
+                        }
+                        // Update local storage with role
+                        userData.role = role;
+                        localStorage.setItem(
+                          "imfo_user",
+                          JSON.stringify(userData)
+                        );
+                      }
+                    }
+                  } catch (err) {
+                    console.log("Error saving role");
+                  } finally {
+                    setLoading(false);
+                  }
+
+                  // Redirect based on role
                   if (role === "hirer") {
-                    setStep("hirerChoice");
+                    handleClose();
+                    router.push("/search");
                   } else {
-                    setStep("complete");
+                    // Photographer - go to their profile page
+                    handleClose();
+                    const storedUser = localStorage.getItem("imfo_user");
+                    if (storedUser) {
+                      const userData = JSON.parse(storedUser);
+                      if (userData?.id) {
+                        router.push(`/profiles/${userData.id}`);
+                      } else {
+                        router.push("/dashboard/edit-profile");
+                      }
+                    } else {
+                      router.push("/dashboard/edit-profile");
+                    }
                   }
                 }}
               >
-                Agree and continue
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Agree and continue"
+                )}
               </Button>
               <div className="flex items-center space-x-2 mt-4">
                 <Checkbox id="marketing" />

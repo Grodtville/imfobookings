@@ -5,7 +5,7 @@ export default function Footer() {
         <div>
           <h3 className="text-2xl font-bold mb-4">Imfo Bookings</h3>
           <p className="text-purple-200 text-sm">
-            45 Ntrub Avenue, Adenta, Accra.
+            45 Ntreh Avenue, Adenta, Accra.
             <br />
             (+233) 20 928 8098
             <br />

@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import Footer from "@/components/Footer";
 import API from "@/lib/api";
-import { me as getMe } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 import { X, Loader2, CheckCircle, Camera, ImageIcon } from "lucide-react";
 
 type Profile = {
@@ -68,6 +68,9 @@ export default function EditProfilePage() {
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
   const [newSpeciality, setNewSpeciality] = useState("");
 
+  // Get user from AuthContext
+  const { user: authUser } = useAuth();
+
   // Fetch user and profile data
   useEffect(() => {
     async function fetchData() {
@@ -75,28 +78,36 @@ export default function EditProfilePage() {
       setError(null);
 
       try {
-        // Get current user
-        const userData = await getMe();
-        setUser(userData);
+        // Use authUser from context instead of API call
+        if (!authUser?.id) {
+          setError("Please log in to edit your profile");
+          setLoading(false);
+          return;
+        }
 
-        if (userData?.id) {
-          // Get profile by user ID
-          try {
-            const profileRes = await API.get(`/v1/profile/id/${userData.id}`);
-            const profileData = profileRes.data;
-            setProfile(profileData);
+        // Set user from context
+        setUser({
+          id: authUser.id,
+          username: authUser.name || null,
+          email: "", // Email not available from context
+        });
 
-            // Populate form fields
-            setName(profileData.name || "");
-            setUsername(profileData.username || "");
-            setBio(profileData.bio || "");
-            setLocation(profileData.location || "");
-            setWebsite(profileData.website || "");
-            setSelectedServices(profileData.services_id || []);
-          } catch (profileErr) {
-            console.log("Profile not found, using user data");
-            setUsername(userData.username || "");
-          }
+        // Get profile by user ID
+        try {
+          const profileRes = await API.get(`/v1/profile/id/${authUser.id}`);
+          const profileData = profileRes.data;
+          setProfile(profileData);
+
+          // Populate form fields
+          setName(profileData.name || "");
+          setUsername(profileData.username || "");
+          setBio(profileData.bio || "");
+          setLocation(profileData.location || "");
+          setWebsite(profileData.website || "");
+          setSelectedServices(profileData.services_id || []);
+        } catch (profileErr) {
+          console.log("Profile not found, using user data");
+          setUsername(authUser.name || "");
         }
 
         // Get available services
@@ -108,14 +119,25 @@ export default function EditProfilePage() {
         }
       } catch (err: any) {
         console.error("Failed to load profile:", err);
-        setError("Please log in to edit your profile");
+        setError("Failed to load profile data");
       } finally {
         setLoading(false);
       }
     }
 
-    fetchData();
-  }, []);
+    if (authUser?.id) {
+      fetchData();
+    } else {
+      // Wait a moment for auth to initialize
+      const timer = setTimeout(() => {
+        if (!authUser?.id) {
+          setError("Please log in to edit your profile");
+          setLoading(false);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authUser]);
 
   const handleSave = async () => {
     if (!profile?.id) {
@@ -272,7 +294,6 @@ export default function EditProfilePage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-        <span className="ml-2">Loading profile...</span>
       </div>
     );
   }

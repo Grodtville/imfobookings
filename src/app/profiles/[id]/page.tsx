@@ -14,9 +14,13 @@ import {
   User,
   PenLine,
   Plus,
+  Loader2,
 } from "lucide-react";
 import ImageLightbox from "@/components/ImageLightbox";
 import Footer from "@/components/Footer";
+import PackageDetailsModal, {
+  PackageData,
+} from "@/components/PackageDetailsModal";
 import API from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -64,6 +68,12 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Package modal state
+  const [selectedPackage, setSelectedPackage] = useState<PackageData | null>(
+    null
+  );
+  const [isPackageModalOpen, setIsPackageModalOpen] = useState(false);
 
   // Check if the logged-in user is viewing their own profile
   const isOwnProfile = useMemo(() => {
@@ -182,8 +192,9 @@ export default function ProfilePage() {
     return (
       <>
         <Navbar />
-        <div className="pt-20 text-center">
-          <div className="text-xl">Loading profile...</div>
+        <div className="pt-20 flex items-center justify-center min-h-[50vh]">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+          <span className="ml-2 text-gray-500">Loading profile...</span>
         </div>
       </>
     );
@@ -416,10 +427,16 @@ export default function ProfilePage() {
                       )}
                       <div className="flex items-center justify-between">
                         <span className="text-2xl font-bold text-purple-600">
-                          ${pkg.price}
+                          GH₵ {pkg.price.toLocaleString()}
                         </span>
-                        <Button className="bg-purple-600 hover:bg-purple-700">
-                          Book Now
+                        <Button
+                          className="bg-purple-600 hover:bg-purple-700"
+                          onClick={() => {
+                            setSelectedPackage(pkg);
+                            setIsPackageModalOpen(true);
+                          }}
+                        >
+                          View Details
                         </Button>
                       </div>
                     </div>
@@ -451,6 +468,15 @@ export default function ProfilePage() {
             </div>
           </section>
         ) : null}
+
+        <PackageDetailsModal
+          isOpen={isPackageModalOpen}
+          onClose={() => {
+            setIsPackageModalOpen(false);
+            setSelectedPackage(null);
+          }}
+          packageData={selectedPackage}
+        />
 
         {/* Lightbox for portfolio images */}
         {lightboxIndex !== null && portfolio.length > 0 && (

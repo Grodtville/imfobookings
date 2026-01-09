@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import Footer from "@/components/Footer";
 import API from "@/lib/api";
-import { me as getMe } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 import {
   Loader2,
   CheckCircle,
@@ -88,6 +88,9 @@ export default function PortfolioPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Get user from AuthContext
+  const { user: authUser } = useAuth();
+
   // Calculate remaining slots
   const remainingSlots = MAX_TOTAL_IMAGES - portfolio.length;
   const maxCanUpload = Math.min(remainingSlots, MAX_UPLOAD_AT_ONCE);
@@ -99,9 +102,19 @@ export default function PortfolioPage() {
       setError(null);
 
       try {
-        // Get current user
-        const userData = await getMe();
-        setUser(userData);
+        // Use authUser from context
+        if (!authUser?.id) {
+          setError("Please log in to view your portfolio");
+          setLoading(false);
+          return;
+        }
+
+        // Set user from context
+        setUser({
+          id: authUser.id,
+          username: authUser.name || null,
+          email: "",
+        });
 
         // Get all portfolios and filter by user
         try {
@@ -109,7 +122,7 @@ export default function PortfolioPage() {
           const allPortfolio = portfolioRes.data || [];
           // Filter portfolios by the current user
           const userPortfolio = allPortfolio.filter(
-            (item: PortfolioItem) => item.owner_id === userData?.id
+            (item: PortfolioItem) => item.owner_id === authUser.id
           );
           setPortfolio(userPortfolio);
         } catch (portErr) {
@@ -126,14 +139,25 @@ export default function PortfolioPage() {
         }
       } catch (err: unknown) {
         console.error("Failed to load data:", err);
-        setError("Please log in to view your portfolio");
+        setError("Failed to load portfolio");
       } finally {
         setLoading(false);
       }
     }
 
-    fetchData();
-  }, []);
+    if (authUser?.id) {
+      fetchData();
+    } else {
+      // Wait a moment for auth to initialize
+      const timer = setTimeout(() => {
+        if (!authUser?.id) {
+          setError("Please log in to view your portfolio");
+          setLoading(false);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [authUser]);
 
   // Cleanup preview URLs when component unmounts or files change
   useEffect(() => {

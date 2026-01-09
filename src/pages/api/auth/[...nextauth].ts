@@ -5,6 +5,15 @@ import type { NextAuthOptions } from "next-auth";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || process.env.NEXTAUTH_API_URL || "";
 
+// Get the secret - check multiple possible env var names
+const getSecret = () => {
+  const secret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET || process.env.SECRET;
+  if (!secret && process.env.NODE_ENV === "production") {
+    console.error("WARNING: No NEXTAUTH_SECRET found in environment variables");
+  }
+  return secret;
+};
+
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
@@ -83,7 +92,8 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: getSecret(),
+  debug: process.env.NODE_ENV === "development",
 };
 
 export default NextAuth(authOptions);

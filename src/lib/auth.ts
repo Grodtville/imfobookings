@@ -27,10 +27,13 @@ export async function tokenLogin(username: string, password: string) {
 
 export async function createUser(payload: { username: string; email: string; password: string }) {
   // CreateUserRequest requires username, email, and password
+  // The backend may return validation errors if fields are invalid
   const res = await API.post("/v1/auth/register", {
     username: payload.username,
     email: payload.email || payload.username, // use username as email if not provided
     password: payload.password,
+    // Some backends may require a user_type field
+    user_type: "photographer",
   });
   return res.data;
 }
@@ -55,5 +58,10 @@ export async function logout() {
 
 export async function getAllUsers() {
   const res = await API.get("/v1/auth/users");
+  return res.data;
+}
+
+export async function updateUserRole(userId: string, role: string) {
+  const res = await API.put(`/v1/auth/users/${userId}/role`, { role });
   return res.data;
 }
