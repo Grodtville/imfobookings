@@ -12,7 +12,7 @@ export type PackageCardData = {
   details: string[] | null;
   price: number;
   image: string | null;
-  status?: string | null;
+  status: string | null;
   vendor_name?: string;
 };
 
