@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Filter, CheckCircle, Loader2 } from "lucide-react";
+import { Search, Filter, Loader2 } from "lucide-react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
@@ -12,6 +12,7 @@ import Footer from "@/components/Footer";
 import PackageDetailsModal, {
   PackageData,
 } from "@/components/PackageDetailsModal";
+import PackageCard, { PackageCardData } from "@/components/PackageCard";
 import API from "@/lib/api";
 
 type APIPackage = {
@@ -135,50 +136,11 @@ export default function SearchClient() {
     return acc;
   }, {} as Record<string, { name: string; packages: APIPackage[] }>);
 
-  // Helper function to render a package card
-  const renderPackageCard = (pkg: APIPackage) => (
-    <div
-      key={pkg.id}
-      className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-    >
-      {pkg.image && (
-        <div className="relative h-48 w-full">
-          <Image
-            src={pkg.image}
-            alt={pkg.title}
-            fill
-            unoptimized
-            className="object-cover"
-          />
-        </div>
-      )}
-      <div className="p-5">
-        <h4 className="font-bold text-lg mb-2">{pkg.title}</h4>
-        {pkg.details && pkg.details.length > 0 && (
-          <ul className="text-gray-600 text-sm mb-4 space-y-1">
-            {pkg.details.slice(0, 3).map((detail, i) => (
-              <li key={i} className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                <span>{detail}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-2xl font-bold text-purple-600 mb-4">
-          GH₵ {pkg.price.toLocaleString()}
-        </p>
-        <Button
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full"
-          onClick={() => {
-            setSelectedPackage(pkg);
-            setIsPackageModalOpen(true);
-          }}
-        >
-          View Details
-        </Button>
-      </div>
-    </div>
-  );
+  // Helper function to handle package click
+  const handlePackageClick = (pkg: APIPackage) => {
+    setSelectedPackage(pkg);
+    setIsPackageModalOpen(true);
+  };
 
   return (
     <>
@@ -293,7 +255,13 @@ export default function SearchClient() {
               {selectedFilter === "packages" && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {filteredPackages.length > 0 ? (
-                    filteredPackages.map(renderPackageCard)
+                    filteredPackages.map((pkg) => (
+                      <PackageCard
+                        key={pkg.id}
+                        package={pkg}
+                        onViewDetails={handlePackageClick}
+                      />
+                    ))
                   ) : (
                     <div className="col-span-3 text-center py-12 text-gray-500">
                       No packages found for &quot;{query}&quot;
@@ -378,8 +346,18 @@ export default function SearchClient() {
                       <h2 className="text-2xl font-bold mb-6">
                         Trending {name} Packages
                       </h2>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {servicePackages.slice(0, 6).map(renderPackageCard)}
+                      <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                        {servicePackages.slice(0, 6).map((pkg) => (
+                          <div
+                            key={pkg.id}
+                            className="flex-shrink-0 w-[280px] md:w-[320px] snap-start"
+                          >
+                            <PackageCard
+                              package={pkg}
+                              onViewDetails={handlePackageClick}
+                            />
+                          </div>
+                        ))}
                       </div>
                     </div>
                   )
@@ -388,8 +366,18 @@ export default function SearchClient() {
                 // Fallback: show all packages if no service grouping works
                 <div>
                   <h2 className="text-2xl font-bold mb-6">Featured Packages</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {packages.slice(0, 12).map(renderPackageCard)}
+                  <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide snap-x snap-mandatory">
+                    {packages.slice(0, 12).map((pkg) => (
+                      <div
+                        key={pkg.id}
+                        className="flex-shrink-0 w-[280px] md:w-[320px] snap-start"
+                      >
+                        <PackageCard
+                          package={pkg}
+                          onViewDetails={handlePackageClick}
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : (

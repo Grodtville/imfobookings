@@ -381,7 +381,7 @@ export default function ProfilePage() {
 
         {/* Packages Section */}
         {packages.length > 0 ? (
-          <section className="py-12 px-4 bg-white">
+          <section id="packages" className="py-12 px-4 bg-white scroll-mt-20">
             <div className="max-w-6xl mx-auto">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-3xl font-bold">Packages</h2>

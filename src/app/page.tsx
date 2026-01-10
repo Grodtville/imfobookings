@@ -5,12 +5,13 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, CheckCircle, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import PackageDetailsModal, {
   PackageData,
 } from "@/components/PackageDetailsModal";
+import PackageCard, { PackageCardData } from "@/components/PackageCard";
 import API from "@/lib/api";
 
 type PortfolioItem = {
@@ -153,47 +154,14 @@ export default function HomePage() {
           ) : apiPackages.length > 0 ? (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {apiPackages.map((pkg) => (
-                <div
+                <PackageCard
                   key={pkg.id}
-                  className="bg-white rounded-2xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
-                >
-                  {pkg.image && (
-                    <div className="relative h-48 w-full">
-                      <Image
-                        src={pkg.image}
-                        alt={pkg.title}
-                        fill
-                        unoptimized
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="p-5">
-                    <h4 className="font-bold text-lg mb-2">{pkg.title}</h4>
-                    {pkg.details && pkg.details.length > 0 && (
-                      <ul className="text-gray-600 text-sm mb-4 space-y-1">
-                        {pkg.details.slice(0, 3).map((detail, i) => (
-                          <li key={i} className="flex items-start gap-2">
-                            <CheckCircle className="h-4 w-4 text-purple-600 mt-0.5 flex-shrink-0" />
-                            <span>{detail}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                    <p className="text-2xl font-bold text-purple-600 mb-4">
-                      GH₵ {pkg.price.toLocaleString()}
-                    </p>
-                    <Button
-                      className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full"
-                      onClick={() => {
-                        setSelectedPackage(pkg);
-                        setIsPackageModalOpen(true);
-                      }}
-                    >
-                      View Details
-                    </Button>
-                  </div>
-                </div>
+                  package={pkg}
+                  onViewDetails={(p) => {
+                    setSelectedPackage(p as PackageData);
+                    setIsPackageModalOpen(true);
+                  }}
+                />
               ))}
             </div>
           ) : (

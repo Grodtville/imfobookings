@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -54,9 +55,17 @@ export default function PackageDetailsModal({
   onClose,
   packageData,
 }: PackageDetailsModalProps) {
+  const router = useRouter();
   const [vendor, setVendor] = useState<VendorInfo | null>(null);
   const [vendorPackagesCount, setVendorPackagesCount] = useState(0);
   const [loading, setLoading] = useState(false);
+
+  const handleBookPackage = () => {
+    if (packageData?.id) {
+      onClose();
+      router.push(`/booking/${packageData.id}`);
+    }
+  };
 
   useEffect(() => {
     async function fetchVendorInfo() {
@@ -173,7 +182,10 @@ export default function PackageDetailsModal({
                   </ul>
                 )}
 
-                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full h-11">
+                <Button 
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white rounded-full h-11"
+                  onClick={handleBookPackage}
+                >
                   Book Package
                 </Button>
               </div>

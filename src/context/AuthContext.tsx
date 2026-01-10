@@ -9,6 +9,7 @@ type User = { id: string; name: string; avatar?: string } | null;
 
 type AuthContextValue = {
   user: User;
+  loading: boolean;
   signIn: (
     user: { id: string; name: string; avatar?: string },
     token?: string
@@ -155,7 +156,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider
+      value={{ user, loading, signIn, signOut, refreshProfile }}
+    >
       {children}
     </AuthContext.Provider>
   );

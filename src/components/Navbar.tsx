@@ -8,15 +8,16 @@ import { Input } from "@/components/ui/input";
 import AuthModal from "@/components/AuthModal";
 import { useEffect, useState, useRef } from "react";
 import { useAuth } from "../context/AuthContext";
-import { Calendar, Search } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Calendar, Search, Menu, X } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 export default function Navbar() {
   const [authOpen, setAuthOpen] = useState(false);
-  const { user, signOut } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export default function Navbar() {
               <Link href="/search" className="hover:text-purple-600">
                 Explore
               </Link>
-              <Link href="#" className="hover:text-purple-600">
+              <Link href="/inspire" className="hover:text-purple-600">
                 Get Inspired
               </Link>
             </div>
@@ -91,7 +92,12 @@ export default function Navbar() {
 
           {/* Right section - Auth/User */}
           <div className="flex items-center space-x-4">
-            {!user ? (
+            {loading ? (
+              /* Skeleton placeholder while auth state loads */
+              <div className="flex items-center space-x-4">
+                <div className="h-8 w-8 rounded-full bg-gray-200 animate-pulse" />
+              </div>
+            ) : !user ? (
               <>
                 <Button
                   variant="ghost"
@@ -126,20 +132,18 @@ export default function Navbar() {
                         <img
                           src={user.avatar}
                           alt={user?.name || "User"}
-                          className="h-full w-full object-cover"
+                          className="h-full w-full object-cover rounded-full"
                         />
                       ) : (
-                        <>
-                          <AvatarImage src="/avatar-placeholder.png" />
-                          <AvatarFallback>
-                            {user?.name
-                              ? user.name
-                                  .split(" ")
-                                  .map((n) => n[0])
-                                  .join("")
-                              : "?"}
-                          </AvatarFallback>
-                        </>
+                        <AvatarFallback className="bg-purple-100 text-purple-600 font-medium">
+                          {user?.name
+                            ? user.name
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .toUpperCase()
+                            : "?"}
+                        </AvatarFallback>
                       )}
                     </Avatar>
                   </button>
@@ -176,9 +180,132 @@ export default function Navbar() {
               </>
             )}
 
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-6 w-6" />
+              ) : (
+                <Menu className="h-6 w-6" />
+              )}
+            </button>
+
             <AuthModal open={authOpen} onOpenChange={setAuthOpen} />
           </div>
         </div>
+
+        {/* Mobile menu panel */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t bg-white pb-4">
+            <div className="px-4 pt-4 space-y-3">
+              {/* Mobile search */}
+              <div className="relative">
+                <Input
+                  type="text"
+                  placeholder="Search packages..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && searchQuery.trim()) {
+                      router.push(
+                        `/search?q=${encodeURIComponent(searchQuery)}`
+                      );
+                      setSearchQuery("");
+                      setMobileMenuOpen(false);
+                    }
+                  }}
+                  className="w-full h-10 pl-10 pr-3 rounded-full text-sm border-gray-200"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              </div>
+
+              {/* Mobile nav links */}
+              <Link
+                href="/search"
+                className="block py-2 text-gray-700 hover:text-purple-600"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Explore
+              </Link>
+              <Link
+                href="/inspire"
+                className="block py-2 text-gray-700 hover:text-purple-600"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Get Inspired
+              </Link>
+
+              {/* Mobile auth/user section */}
+              {loading ? (
+                <div className="h-10 w-full rounded-lg bg-gray-200 animate-pulse" />
+              ) : !user ? (
+                <div className="space-y-2 pt-2">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => {
+                      setAuthOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Log in
+                  </Button>
+                  <Button
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                    onClick={() => {
+                      setAuthOpen(true);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    Join Imfo Bookings
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-1 pt-2 border-t">
+                  <Link
+                    href={`/profiles/${user.id}`}
+                    className="block py-2 text-gray-700 hover:text-purple-600"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    My profile
+                  </Link>
+                  <Link
+                    href="/dashboard/bookings"
+                    className="block py-2 text-gray-700 hover:text-purple-600"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    My bookings
+                  </Link>
+                  <Link
+                    href="/dashboard/edit-profile"
+                    className="block py-2 text-gray-700 hover:text-purple-600"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Edit profile
+                  </Link>
+                  <Link
+                    href="/dashboard/settings"
+                    className="block py-2 text-gray-700 hover:text-purple-600"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Profile settings
+                  </Link>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}
+                    className="block w-full text-left py-2 text-red-600 hover:text-red-700"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </nav>
   );
